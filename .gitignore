@@ -1,0 +1,13 @@
+# Python venv
+venv/
+*.py[cod]
+__pycache__/
+
+# VSCode directory
+.vscode/
+
+# Env secrets
+.env
+
+# Django
+db.sqlite3
