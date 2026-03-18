@@ -6,7 +6,36 @@
 - Django 6.0, DRF
 - PostgreSQL (Planned, using SQLite for now)
 
-## Setup
+## Running with Docker (recommended)
+
+### 1. Clone the repository
+
+```bash
+git clone <repo-url>
+cd job-platform-backend
+```
+
+### 2. Set up environment variables
+
+Copy `.env.example` to `.env` and fill in the values:
+
+```bash
+cp .env.example .env
+```
+
+### 3. Create a superuser
+
+```bash
+python manage.py createsuperuser
+```
+
+### 4. Build and run container
+
+```bash
+docker compose up --build
+```
+
+## Running natively
 
 ### 1. Clone the repository
 
@@ -37,26 +66,17 @@ Copy `.env.example` to `.env` and fill in the values:
 cp .env.example .env
 ```
 
-### 5. Run migrations
-
-```bash
-python manage.py migrate
-```
-
-### 6. Create a superuser
+### 5. Create a superuser
 
 ```bash
 python manage.py createsuperuser
 ```
 
-### 7. Run the development server
+### 6. Run the development server
 
 ```bash
 python manage.py runserver
 ```
-
-## Running with Docker (Planned)
-
 
 ## API Endpoints
 
