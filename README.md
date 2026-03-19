@@ -4,7 +4,7 @@
 
 - Python 3.14
 - Django 6.0, DRF
-- PostgreSQL (Planned, using SQLite for now)
+- PostgreSQL
 
 ## Running with Docker (recommended)
 
@@ -23,25 +23,33 @@ Copy `.env.example` to `.env` and fill in the values:
 cp .env.example .env
 ```
 
-### 3. Create a superuser
+SECRET_KEY can be generated from https://djecrety.ir/
 
-```bash
-python manage.py createsuperuser
-```
-
-### 4. Build and run container
+### 3. Build and run container
 
 ```bash
 docker compose up --build
 ```
 
+### 4. Create a superuser for admin panel (if needed)
+
+```bash
+docker compose exec django python manage.py createsuperuser
+```
+
 ## Running natively
 
-### 1. Clone the repository
+### 1. Clone the repository and install PostgreSQL
 
 ```bash
 git clone <repo-url>
 cd job-platform-backend
+```
+
+Also install PostgreSQL from https://www.postgresql.org/download/ and create the database:
+```sql
+CREATE ROLE DB_USER WITH LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD 'DB_PASSWORD';
+CREATE DATABASE DB_NAME OWNER DB_USER;
 ```
 
 ### 2. Create and activate virtual environment
@@ -66,13 +74,21 @@ Copy `.env.example` to `.env` and fill in the values:
 cp .env.example .env
 ```
 
-### 5. Create a superuser
+SECRET_KEY can be generated from https://djecrety.ir/
+
+### 5. Create a superuser for admin panel (if needed)
 
 ```bash
 python manage.py createsuperuser
 ```
 
-### 6. Run the development server
+### 6. Run migrations (if needed)
+
+```bash
+python manage.py migrate
+```
+
+### 7. Run the development server
 
 ```bash
 python manage.py runserver
@@ -123,8 +139,13 @@ Authorization: Token <your-token>
 
 | Variable | Description |
 |----------|-------------|
-| `SECRET_KEY` | Django secret key |
-| `DEBUG` | Debug mode (True/False) |
+| `SECRET_KEY` | Django secret key (https://djecrety.ir/) |
+| `DEBUG` | Debug mode (True for development) |
+| `DB_NAME` | Database name (Default: jobplatform) |
+| `DB_USER` | Database username (Default: jobplatform) |
+| `DB_PASSWORD` | Database platform (Default: jobplatform) |
+| `DB_HOST` | Database host (Default: localhost) |
+| `DB_PORT` | Database port (Default: 5432) |
 
 ## Progress
 
