@@ -3,7 +3,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.response import Response
 from .models import JobPosting, JobApplication
-from .serializers import JobPostingSerializer, JobApplicationSerializer
+from .serializers import JobPostingSerializer, JobApplicationSerializer , JobApplicationStatusSerializer
 from users.models import User
 
 class JobPostingListCreateView(generics.ListCreateAPIView):
@@ -30,13 +30,26 @@ class JobPostingDetailView(generics.RetrieveUpdateDestroyAPIView):
     queryset = JobPosting.objects.all()
 
     def update(self, request, *args, **kwargs):
+        #make sure that the user that tries to update the job is an employer
         if request.user.role != User.Role.EMPLOYER:
             raise PermissionDenied('Only employers can update job postings.')
+
+        #make sure that other employers can't update jobs created by other employers
+        job = self.get_object()
+        if job.employer != request.user.employer_profile:
+            raise PermissionDenied('Only the employer that made the job posting can update it.')
+        
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
         if request.user.role != User.Role.EMPLOYER:
             raise PermissionDenied('Only employers can delete job postings.')
+        
+        #make sure that other employers can't delete jobs created by other employers
+        job = self.get_object()
+        if job.employer != request.user.employer_profile:
+            raise PermissionDenied('Only the employer that made the job posting can delete it.')
+        
         return super().destroy(request, *args, **kwargs)
 
 class JobApplicationListView(generics.ListAPIView):
@@ -78,3 +91,23 @@ class JobApplyView(generics.CreateAPIView):
         except Exception:
             raise NotFound('Candidate profile not found.')
 
+class JobApplicationStatusView(generics.UpdateAPIView):
+    serializer_class = JobApplicationStatusSerializer
+    permission_classes = [IsAuthenticated]
+
+    #extend the drfs code 
+    #we do a security check before we update the status
+    def get_object(self):
+        if self.request.user.role != User.Role.EMPLOYER:
+            raise PermissionDenied('only employers can update application status.')
+        
+        try:
+            application = JobApplication.objects.get(pk=self.kwargs.get('pk'))
+        except JobApplication.DoesNotExist :
+            raise NotFound('Application does not exist.')
+        
+        if application.job.employer != self.request.user.employer_profile:
+            raise PermissionDenied('Only the employer that owns this application can update it')
+        
+        return application
+    

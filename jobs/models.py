@@ -32,3 +32,7 @@ class JobApplication(models.Model):
         ('rejected', 'Rejected'),
     ], default='pending')
     created_at = models.DateTimeField(auto_now_add=True)
+
+    # Prevent duplicate applications to a job by the same person
+    class Meta:
+        unique_together = (('candidate','job'),)
