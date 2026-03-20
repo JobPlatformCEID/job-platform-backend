@@ -124,6 +124,7 @@ python manage.py runserver
 | DELETE | `/api/jobs/<id>/` | Delete a job posting (employer only) | Token |
 | POST | `/api/jobs/<id>/apply/` | Apply for a job (candidate only) | Token |
 | GET | `/api/jobs/applications/` | List applications (employer only) | Token |
+| PATCH | `/api/jobs/applications/<id>/status/` | Accept/reject an application (employer only) | Token
 
 APIs were tested with Postman.
 
