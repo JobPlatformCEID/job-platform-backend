@@ -11,7 +11,7 @@ services:
       - DB_HOST=postgres
     depends_on:
       - postgres
-
+    restart: on-failure
   postgres:
     image: postgres:16
     ports:
@@ -21,7 +21,7 @@ services:
       POSTGRES_USER: ${DB_USER}
       POSTGRES_PASSWORD: ${DB_PASSWORD}
     volumes:
-      - postgres_data:/var/lib/postgresql/data  # Needed so that our DB in docker doesn't get deleted
+      - postgres_data:/var/lib/postgresql/data
 
 volumes:
   postgres_data:

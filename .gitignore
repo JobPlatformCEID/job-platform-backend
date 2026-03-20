@@ -11,3 +11,7 @@ __pycache__/
 
 # Django
 db.sqlite3
+
+#.idea
+.idea/
+.idea
