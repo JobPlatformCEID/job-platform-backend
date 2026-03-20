@@ -2,6 +2,8 @@ from rest_framework import generics, status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.response import Response
+from django.db import IntegrityError
+from rest_framework.exceptions import ValidationError
 from .models import JobPosting, JobApplication
 from .serializers import JobPostingSerializer, JobApplicationSerializer , JobApplicationStatusSerializer
 from users.models import User
@@ -88,6 +90,8 @@ class JobApplyView(generics.CreateAPIView):
             )
         except JobPosting.DoesNotExist:
             raise NotFound('Job posting not found.')
+        except IntegrityError:
+            raise ValidationError('You have already applied for this job.')
         except Exception:
             raise NotFound('Candidate profile not found.')
 
