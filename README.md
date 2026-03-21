@@ -124,7 +124,12 @@ python manage.py runserver
 | DELETE | `/api/jobs/<id>/` | Delete a job posting (employer only) | Token |
 | POST | `/api/jobs/<id>/apply/` | Apply for a job (candidate only) | Token |
 | GET | `/api/jobs/applications/` | List applications (employer only) | Token |
-| PATCH | `/api/jobs/applications/<id>/status/` | Accept/reject an application (employer only) | Token
+| PATCH | `/api/jobs/applications/<id>/status/` | Accept/reject an application (employer only) | Token |
+| GET | `/api/jobs/<id>/comments/` | List all comments on a job posting | Token 
+| POST | `/api/jobs/<id>/comments/` | Add a comment on a job posting (verified employees only) | Token |
+| PUT | `/api/jobs/<id>/comments/<id>/` | Edit a comment | Token |
+| DELETE | `/api/jobs/<id>/comments/<id>/` | Soft delete a comment | Token |
+
 
 APIs were tested with Postman.
 
@@ -153,3 +158,4 @@ Authorization: Token <your-token>
 - Implemented most of use cases 1 and 2
 - Missing: CV upload, Profile score calculation (We need to decide where calculation should happen)
 - Added tests to jobs/test.py to check if everything is working as its supposed to
+- added logic for comments on job postings 

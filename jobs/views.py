@@ -4,9 +4,15 @@ from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.response import Response
 from django.db import IntegrityError
 from rest_framework.exceptions import ValidationError
-from .models import JobPosting, JobApplication
-from .serializers import JobPostingSerializer, JobApplicationSerializer , JobApplicationStatusSerializer
-from users.models import User
+from .models import JobPosting , JobApplication , JobComment
+from users.models import User , WorkExperience , EmployerProfile
+from .serializers import (
+    JobPostingSerializer, 
+    JobApplicationSerializer , 
+    JobApplicationStatusSerializer,
+    JobCommentSerializer
+)
+
 
 class JobPostingListCreateView(generics.ListCreateAPIView):
     serializer_class = JobPostingSerializer
@@ -114,4 +120,86 @@ class JobApplicationStatusView(generics.UpdateAPIView):
             raise PermissionDenied('Only the employer that owns this application can update it')
         
         return application
+    
+
+class JobCommentListCreateView(generics.ListCreateAPIView):
+    serializer_class = JobCommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        job_id = self.kwargs.get("job_id");
+        #none is needed so that only the top level get returned the serializer does the rest
+        return JobComment.objects.filter(job = job_id , parent_comment=None)
+    
+    def perform_create(self, serializer):
+        try:
+            job_post= JobPosting.objects.get(pk=self.kwargs.get('job_id'))
+        except JobPosting.DoesNotExist:
+            raise NotFound('job posting does not exist')
+        
+        if not self.request.data.get('content','').strip():
+            raise ValidationError('content of job comment cannot be empty')
+        
+        parent_id = self.request.data.get('parent_comment')
+            
+        if parent_id:
+            try:
+                parent = JobComment.objects.get(pk=parent_id)
+            except JobComment.DoesNotExist:
+                raise NotFound('parent comment not found')
+            
+            if parent.job != job_post:
+                raise ValidationError('parent comment does not belong to this job posting')
+        
+        has_experience = WorkExperience.objects.filter(
+            candidate__user = self.request.user,
+            company__iexact = job_post.employer.company_name,
+            title__iexact =  job_post.title
+        ).exists()
+
+        # employers in the same company can also leave comments
+        is_employer = (
+            self.request.user.role == User.Role.EMPLOYER and
+            self.request.user.employer_profile.company_name.lower() == job_post.employer.company_name.lower()
+        )
+
+        if not has_experience and not is_employer:
+            raise PermissionDenied('you must have worked in this role for that company in the past to comment')
+
+        serializer.save(job = job_post , owner= self.request.user)
+
+class JobCommentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = JobCommentSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        try:
+            return JobComment.objects.get(pk=self.kwargs.get('comment_id'))
+        except JobComment.DoesNotExist:
+            raise NotFound('comment not found')
+
+    def update(self, request, *args, **kwargs):
+        comment = self.get_object()
+
+        if comment.owner != self.request.user:
+            raise PermissionDenied('you are not the owner of this comment you cant edit it')
+
+        comment.edited = True
+        comment.save()
+
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        comment = self.get_object()
+
+        if comment.owner != self.request.user:
+            raise PermissionDenied('you are not the owner of this comment you cant delete it')
+
+        #soft delete to not lose indentation in reply section in the ui
+        comment.deleted = True
+        comment.content = ''
+        comment.save()
+
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     

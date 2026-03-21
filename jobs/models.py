@@ -1,7 +1,8 @@
 from django.db import models
-from users.models import CandidateProfile, EmployerProfile
+from users.models import User , CandidateProfile, EmployerProfile
+from mptt.models import MPTTModel, TreeForeignKey
 
-# Job Posting model: Employer creates it publically for all candidates
+# Job Posting model: Employer creates it publicly for all candidates
 class JobPosting(models.Model):
     employer = models.ForeignKey(EmployerProfile, on_delete=models.CASCADE, related_name='job_postings')
     title = models.CharField(max_length=100)
@@ -36,3 +37,17 @@ class JobApplication(models.Model):
     # Prevent duplicate applications to a job by the same person
     class Meta:
         unique_together = (('candidate','job'),)
+
+# Job comment model : users with past work experience in that role in that company can comment on a job posting
+# NOTE: when a posting is deleted all of its comments should go too , but if a user is gone his comments can stay
+class JobComment(MPTTModel):
+    job = models.ForeignKey(JobPosting, on_delete=models.CASCADE, related_name='comments')
+    owner = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='job_comment_owner')
+    parent_comment = TreeForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    content = models.TextField(null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    edited = models.BooleanField(default=False)
+    deleted = models.BooleanField(default=False)
+
+    class MPTTMeta:
+        order_insertion_by = ['created_at']
