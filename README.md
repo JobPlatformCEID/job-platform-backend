@@ -1,10 +1,12 @@
 # job-platform-backend
 
-## Requirements
+## Technologies
 
+- Docker
 - Python 3.14
 - Django 6.0, DRF
 - PostgreSQL
+- MinIO
 
 ## Running with Docker (recommended)
 
@@ -35,63 +37,6 @@ docker compose up --build
 
 ```bash
 docker compose exec django python manage.py createsuperuser
-```
-
-## Running natively
-
-### 1. Clone the repository and install PostgreSQL
-
-```bash
-git clone <repo-url>
-cd job-platform-backend
-```
-
-Also install PostgreSQL from https://www.postgresql.org/download/ and create the database:
-```sql
-CREATE ROLE DB_USER WITH LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD 'DB_PASSWORD';
-CREATE DATABASE DB_NAME OWNER DB_USER;
-```
-
-### 2. Create and activate virtual environment
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Set up environment variables
-
-Copy `.env.example` to `.env` and fill in the values:
-
-```bash
-cp .env.example .env
-```
-
-SECRET_KEY can be generated from https://djecrety.ir/
-
-### 5. Create a superuser for admin panel (if needed)
-
-```bash
-python manage.py createsuperuser
-```
-
-### 6. Run migrations (if needed)
-
-```bash
-python manage.py migrate
-```
-
-### 7. Run the development server
-
-```bash
-python manage.py runserver
 ```
 
 ## API Endpoints
