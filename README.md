@@ -143,6 +143,13 @@ python manage.py runserver
 | GET | `/api/posts/<id>/` | Get post details | Token |
 | PATCH | `/api/posts/<id>/` | Update a post | Token |
 | DELETE | `/api/posts/<id>/` | Delete a post | Token |
+| GET | `/api/posts/<id>/comments/` | List comments on a post | Token |
+| POST | `/api/posts/<id>/comments/` | Add a comment to a post | Token |
+| GET | `/api/posts/<id>/comments/<comment_id>/` | Get a specific comment | Token |
+| PATCH | `/api/posts/<id>/comments/<comment_id>/` | Update a comment | Token |
+| DELETE | `/api/posts/<id>/comments/<comment_id>/` | Delete a comment | Token |
+| POST | `/api/posts/<id>/like/` | Like a post | Token |
+| DELETE | `/api/posts/<id>/like/` | Unlike a post | Token |
 
 APIs were tested with Postman.
 
