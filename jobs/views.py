@@ -79,8 +79,6 @@ class JobApplyView(generics.CreateAPIView):
         return super().create(request, *args, **kwargs)
 
     def perform_create(self, serializer):
-        if self.request.user.role != User.Role.CANDIDATE:
-            raise PermissionDenied('Only candidates can apply for jobs.')
         try:
             job_id = self.kwargs.get('pk')
             job = JobPosting.objects.get(pk=job_id)
