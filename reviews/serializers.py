@@ -6,7 +6,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     class Meta:
         model = Review
         fields = '__all__'
-        read_only_fields = ['owner', 'created_at','edited']
+        read_only_fields = ['owner', 'created_at','edited','employer']
 
 class EmployerReviewSummarySerializer(serializers.Serializer):
     score = serializers.SerializerMethodField()

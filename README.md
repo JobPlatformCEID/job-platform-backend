@@ -162,3 +162,4 @@ Authorization: Token <your-token>
 - Implemented most of use cases 1 and 2
 - Missing: CV upload, Profile score calculation (We need to decide where calculation should happen)
 - Added tests to jobs/test.py to check if everything is working as its supposed to
+- added tests to reviews/test.py 
