@@ -135,6 +135,15 @@ python manage.py runserver
 | PUT | `/api/reviews/<employer_id>/<id>/` | Edit a review (owner only) | Token |
 | DELETE | `/api/reviews/<employer_id>/<id>/` | Delete a review (owner only) | Token |
 
+### Social
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/posts/` | List all posts | Token |
+| POST | `/api/posts/` | Create a post | Token |
+| GET | `/api/posts/<id>/` | Get post details | Token |
+| PATCH | `/api/posts/<id>/` | Update a post | Token |
+| DELETE | `/api/posts/<id>/` | Delete a post | Token |
+
 APIs were tested with Postman.
 
 ## Token-based authentication (temporary)
