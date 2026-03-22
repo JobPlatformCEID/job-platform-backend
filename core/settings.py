@@ -87,13 +87,14 @@ REST_FRAMEWORK = {
 }
 
 # MinIO buckets
-MINIO_STORAGE_ENDPOINT = config('MINIO_ENDPOINT', default='localhost:9000')
+MINIO_STORAGE_ENDPOINT = config('MINIO_ENDPOINT')
 MINIO_STORAGE_ACCESS_KEY = config('MINIO_USER', default='jobplatform')
 MINIO_STORAGE_SECRET_KEY = config('MINIO_PASSWORD', default='jobplatform')
 MINIO_STORAGE_USE_HTTPS = False                         # Note: Disable HTTPS for now, we should change this in production
 MINIO_STORAGE_MEDIA_BUCKET_NAME = config('MINIO_BUCKET', default='jobplatform')
 MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
 MINIO_STORAGE_AUTO_CREATE_MEDIA_POLICY = 'GET_ONLY'     # Note: This makes files publically downloadable, its what we want for post images
+MINIO_STORAGE_MEDIA_URL = f"http://{config('MINIO_PUBLIC_ENDPOINT', default=MINIO_STORAGE_ENDPOINT)}/{MINIO_STORAGE_MEDIA_BUCKET_NAME}"
 
 if 'test' in sys.argv:
     MEDIA_ROOT = BASE_DIR / 'media-tests'
@@ -128,8 +129,8 @@ DATABASES = {
         'NAME': config('DB_NAME', default='jobplatform'),
         'USER': config('DB_USER', default='jobplatform'),
         'PASSWORD': config('DB_PASSWORD', default='jobplatform'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
     }
 }
 
