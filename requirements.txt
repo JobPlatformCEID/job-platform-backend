@@ -8,6 +8,7 @@ django-cors-headers==4.9.0
 django-minio-storage==0.5.9
 djangorestframework==3.16.1
 minio==7.2.18
+pillow==12.1.1
 psycopg==3.3.3
 psycopg-binary==3.3.3
 psycopg-pool==3.3.0

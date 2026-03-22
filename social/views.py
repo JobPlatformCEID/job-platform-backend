@@ -4,8 +4,8 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
 from rest_framework.response import Response
 from django.db import IntegrityError
-from .models import Post, Comment, Like
-from .serializers import PostSerializer, CommentSerializer, LikeSerializer
+from .models import Post, Comment, Like, PostImage
+from .serializers import PostSerializer, PostImageSerializer, CommentSerializer, LikeSerializer
 
 class PostListCreateView(generics.ListCreateAPIView):
     serializer_class = PostSerializer
@@ -33,6 +33,56 @@ class PostDetailView(generics.RetrieveUpdateDestroyAPIView):
         if post.user != request.user:
             raise PermissionDenied('You can only delete your own posts.')
         return super().destroy(request, *args, **kwargs)
+
+class PostImageDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = PostImageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        try:
+            image = PostImage.objects.get(
+                pk=self.kwargs.get('image_pk'),
+                post_id=self.kwargs.get('pk')
+            )
+        except PostImage.DoesNotExist:
+            raise NotFound('Image not found.')
+        return image
+
+    def update(self, request, *args, **kwargs):
+        image = self.get_object()
+        if image.post.user != request.user:
+            raise PermissionDenied('You can only edit images on your own posts.')
+        image.image.delete(save=False)
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        image = self.get_object()
+        if image.post.user != request.user:
+            raise PermissionDenied('You can only delete images on your own posts.')
+        return super().destroy(request, *args, **kwargs)
+
+class PostImageListCreateView(generics.ListCreateAPIView):
+    serializer_class = PostImageSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        post_id = self.kwargs.get('pk')
+        if not Post.objects.filter(pk=post_id).exists():
+            raise NotFound('Post not found.')
+        return PostImage.objects.filter(post_id=post_id)
+
+    def create(self, request, *args, **kwargs):
+        try:
+            post = Post.objects.get(pk=self.kwargs.get('pk'))
+        except Post.DoesNotExist:
+            raise NotFound('Post not found.')
+        if post.user != request.user:
+            raise PermissionDenied('You can only add images to your own posts.')
+        return super().create(request, *args, **kwargs)
+
+    def perform_create(self, serializer):
+        post = Post.objects.get(pk=self.kwargs.get('pk'))
+        serializer.save(post=post)
 
 class CommentListCreateView(generics.ListCreateAPIView):
     serializer_class = CommentSerializer

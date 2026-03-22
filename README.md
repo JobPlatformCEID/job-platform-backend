@@ -95,6 +95,11 @@ docker compose exec django python manage.py createsuperuser
 | DELETE | `/api/posts/<id>/comments/<comment_id>/` | Delete a comment | Token |
 | POST | `/api/posts/<id>/like/` | Like a post | Token |
 | DELETE | `/api/posts/<id>/like/` | Unlike a post | Token |
+| GET | `/api/posts/<id>/images/` | List all images for a post | Token |
+| POST | `/api/posts/<id>/images/` | Upload an image to a post | Token |
+| GET | `/api/posts/<id>/images/<image_id>/` | Get a specific image | Token |
+| PATCH | `/api/posts/<id>/images/<image_id>/` | Replace an image | Token |
+| DELETE | `/api/posts/<id>/images/<image_id>/` | Delete an image | Token |
 
 APIs were tested with Postman.
 
