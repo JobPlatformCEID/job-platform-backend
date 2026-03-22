@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import sys
 from decouple import config
 from pathlib import Path
 
@@ -94,14 +95,25 @@ MINIO_STORAGE_MEDIA_BUCKET_NAME = config('MINIO_BUCKET', default='jobplatform')
 MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
 MINIO_STORAGE_AUTO_CREATE_MEDIA_POLICY = 'GET_ONLY'     # Note: This makes files publically downloadable, its what we want for post images
 
-STORAGES = {
-    "default": {
-        "BACKEND": "minio_storage.storage.MinioMediaStorage",
-    },
-    "staticfiles": {
-        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
-    },
-}
+if 'test' in sys.argv:
+    MEDIA_ROOT = BASE_DIR / 'media-tests'
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+else:
+    STORAGES = {
+        "default": {
+            "BACKEND": "minio_storage.storage.MinioMediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True   # Note: Change this in production
