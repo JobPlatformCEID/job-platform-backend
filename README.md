@@ -126,6 +126,15 @@ python manage.py runserver
 | GET | `/api/jobs/applications/` | List applications (employer only) | Token |
 | PATCH | `/api/jobs/applications/<id>/status/` | Accept/reject an application (employer only) | Token
 
+### Reviews
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/reviews/<employer_id>/` | List all reviews for an employer | Token |
+| POST | `/api/reviews/<employer_id>/` | Leave a review for an employer | Token |
+| GET | `/api/reviews/<employer_id>/<id>/` | Get a single review | Token |
+| PUT | `/api/reviews/<employer_id>/<id>/` | Edit a review (owner only) | Token |
+| DELETE | `/api/reviews/<employer_id>/<id>/` | Delete a review (owner only) | Token |
+
 APIs were tested with Postman.
 
 ## Token-based authentication (temporary)
@@ -153,3 +162,4 @@ Authorization: Token <your-token>
 - Implemented most of use cases 1 and 2
 - Missing: CV upload, Profile score calculation (We need to decide where calculation should happen)
 - Added tests to jobs/test.py to check if everything is working as its supposed to
+- added tests to reviews/test.py 
