@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
+    'minio_storage',
     'users.apps.UsersConfig',
     'jobs.apps.JobsConfig',
     'reviews.apps.ReviewsConfig',
@@ -82,6 +83,24 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.TokenAuthentication',
     ],
+}
+
+# MinIO buckets
+MINIO_STORAGE_ENDPOINT = config('MINIO_ENDPOINT', default='localhost:9000')
+MINIO_STORAGE_ACCESS_KEY = config('MINIO_USER', default='jobplatform')
+MINIO_STORAGE_SECRET_KEY = config('MINIO_PASSWORD', default='jobplatform')
+MINIO_STORAGE_USE_HTTPS = False                         # Note: Disable HTTPS for now, we should change this in production
+MINIO_STORAGE_MEDIA_BUCKET_NAME = config('MINIO_BUCKET', default='jobplatform')
+MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
+MINIO_STORAGE_AUTO_CREATE_MEDIA_POLICY = 'GET_ONLY'     # Note: This makes files publically downloadable, its what we want for post images
+
+STORAGES = {
+    "default": {
+        "BACKEND": "minio_storage.storage.MinioMediaStorage",
+    },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
 }
 
 # CORS
