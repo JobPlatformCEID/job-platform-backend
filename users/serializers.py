@@ -31,7 +31,7 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = CandidateProfile
         fields = '__all__'
-        read_only_fields = ['user']
+        read_only_fields = ['user' , 'score']
 
 class EmployerProfileSerializer(serializers.ModelSerializer):
     class Meta:
