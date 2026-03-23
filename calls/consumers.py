@@ -27,15 +27,15 @@ class RoomConsumer(AsyncWebsocketConsumer):
         # too early
         if timezone.now() < self.room.meeting_date:
             return await self.close(code=4003)
-
-        # host activates room
-        if self.user.id == self.room.host_id:
+        
+        #when a host joins the room is active
+        if self.user.id == self.room.host.id : 
             await self.set_room_active(True)
 
-        # block non-host if room inactive
-        if not self.room.is_active and self.user.id != self.room.host_id:
+        # non-host blocked until host joins
+        if not self.room.is_active and self.user.id != self.room.host.id:
             users = await self.get_room_users()
-            if not any(u['id'] == self.room.host_id for u in users):
+            if not any(u['id'] == self.room.host.id for u in users):
                 return await self.close(code=4004)
 
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
@@ -76,7 +76,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
             },
         )
 
-        if self.user.id == self.room.host_id:
+        #for now set it to false until we decide if the call should close when host leaves
+        if self.user.id == self.room.host.id:
             await self.set_room_active(False)
 
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
@@ -133,9 +134,9 @@ class RoomConsumer(AsyncWebsocketConsumer):
     async def kicked_handler(self, event):
         if self.user.id == event['user_id']:
             await self.close(code=4003)
-
-    async def kick(self, user_id):
-        if self.user.id != self.room.host_id:
+    
+    async def kick(self , user_id ):
+        if self.user.id != self.room.host.id:
             return await self.close(code=4003)
 
         await self.channel_layer.group_send(
