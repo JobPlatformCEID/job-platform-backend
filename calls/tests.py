@@ -210,22 +210,35 @@ class RoomWebSocketTests(TransactionTestCase):
         await comm2.disconnect()
 
     async def test_user_list_updates_on_leave(self):
+        # connect User 1
         comm1 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
         comm1.scope['user'] = self.employer
-        await comm1.connect()
-        await comm1.receive_json_from()
+        connected1, _ = await comm1.connect()
+        self.assertTrue(connected1)
 
+        # clear "Employer joined" message from comm1
+        await comm1.receive_json_from()  
+
+        #connect User 2
         comm2 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
         comm2.scope['user'] = self.candidate
-        await comm2.connect()
-        await comm2.receive_json_from()
+        connected2, _ = await comm2.connect()
+        self.assertTrue(connected2)
+    
+        # When User 2 joins, User 1 receives a 'user_joined' notification.
+        # We must clear this from comm1's queue before checking for the 'leave' event.
+        await comm1.receive_json_from()  
+        await comm2.receive_json_from()  
 
+        # user 2 Leaves
         await comm2.disconnect()
 
+        # check user 1's notifications
         response = await comm1.receive_json_from()
 
         self.assertEqual(response['type'], 'user_left')
         self.assertEqual(len(response['users']), 1)
+        self.assertEqual(response['username'], self.candidate.username)
 
         await comm1.disconnect()
     

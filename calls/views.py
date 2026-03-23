@@ -5,6 +5,8 @@ from rest_framework.response import Response
 from .models import Room
 from .serializers import RoomCreateSerializer, RoomDetailSerializer
 from users.models import User
+from django.utils import timezone
+from rest_framework.exceptions import ValidationError
 
 class RoomListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -20,6 +22,11 @@ class RoomListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         if self.request.user.role != User.Role.EMPLOYER:
             raise PermissionDenied('Only employers can create rooms.')
+        
+        meeting_date = serializer.validated_data.get('meeting_date')
+        if meeting_date and meeting_date < timezone.now():
+            raise ValidationError('Meeting cannot be in the past.')
+    
         serializer.save(host=self.request.user)
 
 class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):

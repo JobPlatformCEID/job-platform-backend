@@ -65,7 +65,11 @@ class RoomConsumer(AsyncWebsocketConsumer):
         if not hasattr(self, 'room_group_name'):
             return
 
+        # update redis
         await self.remove_user_from_room()
+
+        #get the new user list
+        updated_users = await self.get_room_users()
 
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -76,11 +80,11 @@ class RoomConsumer(AsyncWebsocketConsumer):
             },
         )
 
+
         if self.user.id == self.room.host_id:
             await self.set_room_active(False)
 
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
-
         await self.redis.close()
 
     # Redis user management
