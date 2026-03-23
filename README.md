@@ -1,10 +1,12 @@
 # job-platform-backend
 
-## Requirements
+## Technologies
 
+- Docker
 - Python 3.14
 - Django 6.0, DRF
 - PostgreSQL
+- MinIO
 
 ## Running with Docker (recommended)
 
@@ -35,63 +37,6 @@ docker compose up --build
 
 ```bash
 docker compose exec django python manage.py createsuperuser
-```
-
-## Running natively
-
-### 1. Clone the repository and install PostgreSQL
-
-```bash
-git clone <repo-url>
-cd job-platform-backend
-```
-
-Also install PostgreSQL from https://www.postgresql.org/download/ and create the database:
-```sql
-CREATE ROLE DB_USER WITH LOGIN SUPERUSER CREATEDB CREATEROLE PASSWORD 'DB_PASSWORD';
-CREATE DATABASE DB_NAME OWNER DB_USER;
-```
-
-### 2. Create and activate virtual environment
-
-```bash
-python -m venv venv
-source venv/bin/activate  # Linux/Mac
-venv\Scripts\activate     # Windows
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Set up environment variables
-
-Copy `.env.example` to `.env` and fill in the values:
-
-```bash
-cp .env.example .env
-```
-
-SECRET_KEY can be generated from https://djecrety.ir/
-
-### 5. Create a superuser for admin panel (if needed)
-
-```bash
-python manage.py createsuperuser
-```
-
-### 6. Run migrations (if needed)
-
-```bash
-python manage.py migrate
-```
-
-### 7. Run the development server
-
-```bash
-python manage.py runserver
 ```
 
 ## API Endpoints
@@ -135,6 +80,27 @@ python manage.py runserver
 | PUT | `/api/reviews/<employer_id>/<id>/` | Edit a review (owner only) | Token |
 | DELETE | `/api/reviews/<employer_id>/<id>/` | Delete a review (owner only) | Token |
 
+### Social
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/posts/` | List all posts | Token |
+| POST | `/api/posts/` | Create a post | Token |
+| GET | `/api/posts/<id>/` | Get post details | Token |
+| PATCH | `/api/posts/<id>/` | Update a post | Token |
+| DELETE | `/api/posts/<id>/` | Delete a post | Token |
+| GET | `/api/posts/<id>/comments/` | List comments on a post | Token |
+| POST | `/api/posts/<id>/comments/` | Add a comment to a post | Token |
+| GET | `/api/posts/<id>/comments/<comment_id>/` | Get a specific comment | Token |
+| PATCH | `/api/posts/<id>/comments/<comment_id>/` | Update a comment | Token |
+| DELETE | `/api/posts/<id>/comments/<comment_id>/` | Delete a comment | Token |
+| POST | `/api/posts/<id>/like/` | Like a post | Token |
+| DELETE | `/api/posts/<id>/like/` | Unlike a post | Token |
+| GET | `/api/posts/<id>/images/` | List all images for a post | Token |
+| POST | `/api/posts/<id>/images/` | Upload an image to a post | Token |
+| GET | `/api/posts/<id>/images/<image_id>/` | Get a specific image | Token |
+| PATCH | `/api/posts/<id>/images/<image_id>/` | Replace an image | Token |
+| DELETE | `/api/posts/<id>/images/<image_id>/` | Delete an image | Token |
+
 APIs were tested with Postman.
 
 ## Token-based authentication (temporary)
@@ -162,4 +128,5 @@ Authorization: Token <your-token>
 - Implemented most of use cases 1 and 2
 - Missing: CV upload, Profile score calculation (We need to decide where calculation should happen)
 - Added tests to jobs/test.py to check if everything is working as its supposed to
-- added tests to reviews/test.py 
+- Added reviews and some tests in reviews/tests.py
+- Added social networking and some tests in social/tests.py

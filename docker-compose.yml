@@ -9,8 +9,12 @@ services:
       - .env
     environment:
       - DB_HOST=postgres
+      - DB_PORT=5432
+      - MINIO_ENDPOINT=minio:9000
     depends_on:
       postgres:
+        condition: service_healthy
+      minio:
         condition: service_healthy
 
   postgres:
@@ -30,5 +34,24 @@ services:
       retries: 5
       start_period: 10s
 
+  minio:
+    image: minio/minio
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_USER:-jobplatform}
+      MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-jobplatform}
+    volumes:
+      - minio_data:/data      # Needed so that our minio bucket in docker doesn't get deleted
+    command: server /data --console-address ":9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   postgres_data:
+  minio_data:

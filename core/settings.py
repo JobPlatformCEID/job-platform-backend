@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
+import sys
 from decouple import config
 from pathlib import Path
 
@@ -41,9 +42,11 @@ INSTALLED_APPS = [
     'corsheaders',
     'rest_framework',
     'rest_framework.authtoken',
+    'minio_storage',
     'users.apps.UsersConfig',
     'jobs.apps.JobsConfig',
-    'reviews.apps.ReviewsConfig'
+    'reviews.apps.ReviewsConfig',
+    'social.apps.SocialConfig',
 ]
 
 MIDDLEWARE = [
@@ -83,6 +86,36 @@ REST_FRAMEWORK = {
     ],
 }
 
+# MinIO buckets
+MINIO_STORAGE_ENDPOINT = config('MINIO_ENDPOINT')
+MINIO_STORAGE_ACCESS_KEY = config('MINIO_USER')
+MINIO_STORAGE_SECRET_KEY = config('MINIO_PASSWORD')
+MINIO_STORAGE_USE_HTTPS = False                         # Note: Disable HTTPS for now, we should change this in production
+MINIO_STORAGE_MEDIA_BUCKET_NAME = config('MINIO_BUCKET')
+MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
+MINIO_STORAGE_AUTO_CREATE_MEDIA_POLICY = 'GET_ONLY'     # Note: This makes files publically downloadable, its what we want for post images
+MINIO_STORAGE_MEDIA_URL = f"http://{config('MINIO_PUBLIC_ENDPOINT', default=MINIO_STORAGE_ENDPOINT)}/{MINIO_STORAGE_MEDIA_BUCKET_NAME}"
+
+if 'test' in sys.argv:
+    MEDIA_ROOT = BASE_DIR / 'media-tests'
+    STORAGES = {
+        "default": {
+            "BACKEND": "django.core.files.storage.FileSystemStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+else:
+    STORAGES = {
+        "default": {
+            "BACKEND": "minio_storage.storage.MinioMediaStorage",
+        },
+        "staticfiles": {
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+        },
+    }
+
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True   # Note: Change this in production
 CORS_URLS_REGEX = r'^/api/.*$'
@@ -93,11 +126,11 @@ CORS_URLS_REGEX = r'^/api/.*$'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME', default='jobplatform'),
-        'USER': config('DB_USER', default='jobplatform'),
-        'PASSWORD': config('DB_PASSWORD', default='jobplatform'),
-        'HOST': config('DB_HOST', default='localhost'),
-        'PORT': config('DB_PORT', default='5432'),
+        'NAME': config('DB_NAME'),
+        'USER': config('DB_USER'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST'),
+        'PORT': config('DB_PORT'),
     }
 }
 
