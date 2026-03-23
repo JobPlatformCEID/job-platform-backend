@@ -123,15 +123,22 @@ else:
 CORS_ALLOW_ALL_ORIGINS = True   # Note: Change this in production
 CORS_URLS_REGEX = r'^/api/.*$'
 
-# Channel layer: Redis
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [(config('REDIS_HOST'), config('REDIS_PORT'))],
-        },
+# Channel layer: Redis for normal use, InMemory or django tests
+if 'test' in sys.argv:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
     }
-}
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [(config('REDIS_HOST'), config('REDIS_PORT'))],
+            },
+        }
+    }
 
 # ASGI application: https://docs.djangoproject.com/en/6.0/howto/deployment/asgi/daphne/
 ASGI_APPLICATION = 'core.asgi.application'
