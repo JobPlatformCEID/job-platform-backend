@@ -24,6 +24,16 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         await self.accept()
 
+        await self.mark_messages_as_read()
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'messages_read',
+                'reader_id': self.user.id,
+                'reader_username': self.user.username,
+            }
+        )
+
     async def disconnect(self, close_code):
         await self.channel_layer.group_discard(
             self.room_group_name,
@@ -50,11 +60,19 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     async def chat_message(self, event):
         await self.send(text_data=json.dumps({
+            'type': 'message',
             'message_id': event['message_id'],
             'content': event['content'],
             'sender_id': event['sender_id'],
             'sender_username': event['sender_username'],
             'created_at': event['created_at'],
+        }))
+
+    async def messages_read(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'read',
+            'reader_id': event['reader_id'],
+            'reader_username': event['reader_username'],
         }))
 
     @database_sync_to_async
@@ -73,3 +91,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             sender=self.user,
             content=content
         )
+
+    @database_sync_to_async
+    def mark_messages_as_read(self):
+        Message.objects.filter(
+            conversation_id=self.conversation_id,
+            is_read=False
+        ).exclude(
+            sender=self.user
+        ).update(is_read=True)

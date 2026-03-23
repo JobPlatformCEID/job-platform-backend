@@ -179,6 +179,12 @@ class WebSocketTests(TransactionTestCase):
         conversation.participants.add(self.user1, self.user2)
         self.conversation_id = conversation.id
 
+    async def receive_of_type(self, communicator, type):
+        while True:
+            response = await communicator.receive_json_from()
+            if response.get('type') == type:
+                return response
+
     async def test_authenticated_participant_can_connect(self):
         communicator = WebsocketCommunicator(
             application,
@@ -211,10 +217,9 @@ class WebSocketTests(TransactionTestCase):
             application,
             f'/ws/conversations/{self.conversation_id}/?token={self.user1_token.key}'
         )
-        connected, _ = await communicator.connect()
-        self.assertTrue(connected)
+        await communicator.connect()
         await communicator.send_json_to({'content': 'Hello!'})
-        response = await communicator.receive_json_from()
+        response = await self.receive_of_type(communicator, 'message')
         self.assertEqual(response['content'], 'Hello!')
         self.assertEqual(response['sender_id'], self.user1.id)
         self.assertEqual(response['sender_username'], self.user1.username)
@@ -232,7 +237,7 @@ class WebSocketTests(TransactionTestCase):
         await communicator1.connect()
         await communicator2.connect()
         await communicator1.send_json_to({'content': 'Hello!'})
-        response = await communicator2.receive_json_from()
+        response = await self.receive_of_type(communicator2, 'message')
         self.assertEqual(response['content'], 'Hello!')
         self.assertEqual(response['sender_username'], self.user1.username)
         await communicator1.disconnect()
@@ -245,7 +250,7 @@ class WebSocketTests(TransactionTestCase):
         )
         await communicator.connect()
         await communicator.send_json_to({'content': 'Hello!'})
-        await communicator.receive_json_from()
+        await self.receive_of_type(communicator, 'message')
         count = await database_sync_to_async(Message.objects.filter(
             conversation_id=self.conversation_id
         ).count)()
@@ -258,6 +263,61 @@ class WebSocketTests(TransactionTestCase):
             f'/ws/conversations/{self.conversation_id}/?token={self.user1_token.key}'
         )
         await communicator.connect()
+        await self.receive_of_type(communicator, 'read')  # consume read receipt
         await communicator.send_json_to({'content': ''})
         self.assertTrue(await communicator.receive_nothing())
         await communicator.disconnect()
+
+    async def test_messages_marked_as_read_on_connect(self):
+        conversation = await database_sync_to_async(Conversation.objects.get)(pk=self.conversation_id)
+        await database_sync_to_async(Message.objects.create)(
+            conversation=conversation,
+            sender=self.user1,
+            content='Hello'
+        )
+        communicator = WebsocketCommunicator(
+            application,
+            f'/ws/conversations/{self.conversation_id}/?token={self.user2_token.key}'
+        )
+        await communicator.connect()
+        is_read = await database_sync_to_async(
+            Message.objects.filter(conversation_id=self.conversation_id, is_read=True).exists
+        )()
+        self.assertTrue(is_read)
+        await communicator.disconnect()
+
+    async def test_own_messages_not_marked_as_read_on_connect(self):
+        conversation = await database_sync_to_async(Conversation.objects.get)(pk=self.conversation_id)
+        await database_sync_to_async(Message.objects.create)(
+            conversation=conversation,
+            sender=self.user1,
+            content='Hello'
+        )
+        communicator = WebsocketCommunicator(
+            application,
+            f'/ws/conversations/{self.conversation_id}/?token={self.user1_token.key}'
+        )
+        await communicator.connect()
+        is_read = await database_sync_to_async(
+            Message.objects.filter(conversation_id=self.conversation_id, is_read=True).exists
+        )()
+        self.assertFalse(is_read)
+        await communicator.disconnect()
+
+    async def test_read_receipt_broadcast_on_connect(self):
+        communicator1 = WebsocketCommunicator(
+            application,
+            f'/ws/conversations/{self.conversation_id}/?token={self.user1_token.key}'
+        )
+        communicator2 = WebsocketCommunicator(
+            application,
+            f'/ws/conversations/{self.conversation_id}/?token={self.user2_token.key}'
+        )
+        await communicator1.connect()
+        await self.receive_of_type(communicator1, 'read')  # consume user1's own read receipt
+        await communicator2.connect()
+        response = await self.receive_of_type(communicator1, 'read')  # this should be user2's
+        self.assertEqual(response['type'], 'read')
+        self.assertEqual(response['reader_id'], self.user2.id)
+        await communicator1.disconnect()
+        await communicator2.disconnect()
