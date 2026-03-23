@@ -92,6 +92,35 @@ class ConversationTests(TestCase):
         response = self.client.get('/api/conversations/')
         self.assertEqual(len(response.data), 0)
 
+    def test_participant_can_delete_conversation(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.post('/api/conversations/', {'user_id': self.user2.id})
+        conversation_id = response.data['id']
+        response = self.client.delete(f'/api/conversations/{conversation_id}/')
+        self.assertEqual(response.status_code, 204)
+
+    def test_non_participant_cannot_delete_conversation(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.post('/api/conversations/', {'user_id': self.user2.id})
+        conversation_id = response.data['id']
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user3_token.key)
+        response = self.client.delete(f'/api/conversations/{conversation_id}/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_deleting_conversation_deletes_messages(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.post('/api/conversations/', {'user_id': self.user2.id})
+        conversation_id = response.data['id']
+        conversation = Conversation.objects.get(pk=conversation_id)
+        Message.objects.create(conversation=conversation, sender=self.user1, content='Hello')
+        Message.objects.create(conversation=conversation, sender=self.user2, content='Hi')
+        self.client.delete(f'/api/conversations/{conversation_id}/')
+        self.assertEqual(Message.objects.filter(conversation_id=conversation_id).count(), 0)
+
+    def test_delete_nonexistent_conversation(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.delete('/api/conversations/9999/')
+        self.assertEqual(response.status_code, 404)
 
 class MessageTests(TestCase):
     def setUp(self):
@@ -151,6 +180,34 @@ class MessageTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
         response = self.client.get('/api/conversations/9999/messages/')
         self.assertEqual(response.status_code, 404)
+
+    def test_sender_can_delete_message(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.get(f'/api/conversations/{self.conversation_id}/messages/')
+        message_id = response.data[0]['id']
+        response = self.client.delete(f'/api/conversations/{self.conversation_id}/messages/{message_id}/')
+        self.assertEqual(response.status_code, 204)
+
+    def test_non_sender_cannot_delete_message(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.get(f'/api/conversations/{self.conversation_id}/messages/')
+        message_id = response.data[0]['id']
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user2_token.key)
+        response = self.client.delete(f'/api/conversations/{self.conversation_id}/messages/{message_id}/')
+        self.assertEqual(response.status_code, 403)
+
+    def test_delete_nonexistent_message(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.delete(f'/api/conversations/{self.conversation_id}/messages/9999/')
+        self.assertEqual(response.status_code, 404)
+
+    def test_unauthenticated_user_cannot_delete_message(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.user1_token.key)
+        response = self.client.get(f'/api/conversations/{self.conversation_id}/messages/')
+        message_id = response.data[0]['id']
+        self.client.credentials()
+        response = self.client.delete(f'/api/conversations/{self.conversation_id}/messages/{message_id}/')
+        self.assertEqual(response.status_code, 401)
 
 class WebSocketTests(TransactionTestCase):
     def setUp(self):
