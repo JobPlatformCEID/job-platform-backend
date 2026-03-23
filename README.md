@@ -101,7 +101,23 @@ docker compose exec django python manage.py createsuperuser
 | PATCH | `/api/posts/<id>/images/<image_id>/` | Replace an image | Token |
 | DELETE | `/api/posts/<id>/images/<image_id>/` | Delete an image | Token |
 
-APIs were tested with Postman.
+### Messaging
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/conversations/` | List all conversations | Token |
+| POST | `/api/conversations/` | Start or retrieve a conversation | Token |
+| GET | `/api/conversations/<id>/messages/` | List all messages in a conversation | Token |
+
+### WebSocket
+| Event | Endpoint | Description | Auth |
+|-------|----------|-------------|------|
+| Connect | `ws://.../ws/conversations/<id>/?token=<token>` | Connect to a conversation | Token |
+| Send | `{"content": "..."}` | Send a message | - |
+| Receive (message) | `{"type": "message", "message_id": ..., "content": ..., "sender_id": ..., "sender_username": ..., "created_at": ...}` | Incoming message | - |
+| Receive (read) | `{"type": "read", "reader_id": ..., "reader_username": ...}` | Read receipt | - |
+
+REST APIs were tested with Postman.
+WebSocket connections were tested via https://websocketking.com
 
 ## Token-based authentication (temporary)
 
@@ -131,3 +147,4 @@ Authorization: Token <your-token>
 - Added tests to jobs/test.py to check if everything is working as its supposed to
 - Added reviews and some tests in reviews/tests.py
 - Added social networking and some tests in social/tests.py
+- Added messaging with WebSocket connections and some tests in messaging/tests.py
