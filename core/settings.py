@@ -43,6 +43,7 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework.authtoken',
     'minio_storage',
+    'channels',
     'users.apps.UsersConfig',
     'jobs.apps.JobsConfig',
     'reviews.apps.ReviewsConfig',
@@ -119,6 +120,16 @@ else:
 # CORS
 CORS_ALLOW_ALL_ORIGINS = True   # Note: Change this in production
 CORS_URLS_REGEX = r'^/api/.*$'
+
+# Channel layer: Redis
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [(config('REDIS_HOST'), config('REDIS_PORT'))],
+        },
+    }
+}
 
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases

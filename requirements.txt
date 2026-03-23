@@ -3,11 +3,14 @@ argon2-cffi-bindings==25.1.0
 asgiref==3.11.1
 certifi==2026.2.25
 cffi==2.0.0
+channels==4.3.2
+channels_redis==4.3.0
 Django==6.0.3
 django-cors-headers==4.9.0
 django-minio-storage==0.5.9
 djangorestframework==3.16.1
 minio==7.2.18
+msgpack==1.1.2
 pillow==12.1.1
 psycopg==3.3.3
 psycopg-binary==3.3.3
@@ -15,6 +18,7 @@ psycopg-pool==3.3.0
 pycparser==3.0
 pycryptodome==3.23.0
 python-decouple==3.8
+redis==7.3.0
 sqlparse==0.5.5
 typing_extensions==4.15.0
 tzdata==2025.3
