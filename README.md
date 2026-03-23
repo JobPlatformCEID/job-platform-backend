@@ -120,8 +120,9 @@ Authorization: Token <your-token>
 | `DB_NAME` | Database name (Default: jobplatform) |
 | `DB_USER` | Database username (Default: jobplatform) |
 | `DB_PASSWORD` | Database platform (Default: jobplatform) |
-| `DB_HOST` | Database host (Default: localhost) |
-| `DB_PORT` | Database port (Default: 5432) |
+| `MINIO_USER` | MinIO username (Default: jobplatform) |
+| `MINIO_PASSWORD` | MinIO password (Default: jobplatform) |
+| `MINIO_BUCKET` | MinIO bucket name (Default: jobplatform) |
 
 ## Progress
 
