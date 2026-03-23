@@ -3,6 +3,7 @@ services:
     build: .
     ports:
       - "8000:8000"
+      - "8001:8001"
     volumes:
       - .:/app
     env_file:
@@ -13,6 +14,7 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - DAPHNE_PORT=8001
     depends_on:
       postgres:
         condition: service_healthy

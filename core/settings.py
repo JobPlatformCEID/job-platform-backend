@@ -49,6 +49,7 @@ INSTALLED_APPS = [
     'jobs.apps.JobsConfig',
     'reviews.apps.ReviewsConfig',
     'social.apps.SocialConfig',
+    'messaging.apps.MessagingConfig',
 ]
 
 MIDDLEWARE = [
