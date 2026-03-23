@@ -90,15 +90,6 @@ REST_FRAMEWORK = {
 }
 
 # MinIO buckets
-MINIO_STORAGE_ENDPOINT = config('MINIO_ENDPOINT')
-MINIO_STORAGE_ACCESS_KEY = config('MINIO_USER')
-MINIO_STORAGE_SECRET_KEY = config('MINIO_PASSWORD')
-MINIO_STORAGE_USE_HTTPS = False                         # Note: Disable HTTPS for now, we should change this in production
-MINIO_STORAGE_MEDIA_BUCKET_NAME = config('MINIO_BUCKET')
-MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
-MINIO_STORAGE_AUTO_CREATE_MEDIA_POLICY = 'GET_ONLY'     # Note: This makes files publically downloadable, its what we want for post images
-MINIO_STORAGE_MEDIA_URL = f"http://{config('MINIO_PUBLIC_ENDPOINT', default=MINIO_STORAGE_ENDPOINT)}/{MINIO_STORAGE_MEDIA_BUCKET_NAME}"
-
 if 'test' in sys.argv:
     MEDIA_ROOT = BASE_DIR / 'media-tests'
     STORAGES = {
@@ -110,6 +101,15 @@ if 'test' in sys.argv:
         },
     }
 else:
+    MINIO_STORAGE_ENDPOINT = config('MINIO_ENDPOINT')
+    MINIO_STORAGE_ACCESS_KEY = config('MINIO_USER')
+    MINIO_STORAGE_SECRET_KEY = config('MINIO_PASSWORD')
+    MINIO_STORAGE_USE_HTTPS = False                         # Note: Disable HTTPS for now, we should change this in production
+    MINIO_STORAGE_MEDIA_BUCKET_NAME = config('MINIO_BUCKET')
+    MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
+    MINIO_STORAGE_AUTO_CREATE_MEDIA_POLICY = 'GET_ONLY'     # Note: This makes files publically downloadable, its what we want for post images
+    MINIO_STORAGE_MEDIA_URL = f"http://{config('MINIO_PUBLIC_ENDPOINT', default=MINIO_STORAGE_ENDPOINT)}/{MINIO_STORAGE_MEDIA_BUCKET_NAME}"
+
     STORAGES = {
         "default": {
             "BACKEND": "minio_storage.storage.MinioMediaStorage",
@@ -146,16 +146,24 @@ ASGI_APPLICATION = 'core.asgi.application'
 # Database
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': config('DB_NAME'),
-        'USER': config('DB_USER'),
-        'PASSWORD': config('DB_PASSWORD'),
-        'HOST': config('DB_HOST'),
-        'PORT': config('DB_PORT'),
+if 'test' in sys.argv:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': ':memory:',
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': config('DB_NAME'),
+            'USER': config('DB_USER'),
+            'PASSWORD': config('DB_PASSWORD'),
+            'HOST': config('DB_HOST'),
+            'PORT': config('DB_PORT'),
+        }
+    }
 
 # Custom User model
 # Followed: https://docs.djangoproject.com/en/6.0/topics/auth/customizing/#substituting-a-custom-user-model
