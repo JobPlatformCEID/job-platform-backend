@@ -4,6 +4,8 @@ from django.utils import timezone
 from .models import Room
 import redis.asyncio as redis
 import json
+import logging
+import os
 
 
 class RoomConsumer(AsyncWebsocketConsumer):
@@ -11,6 +13,9 @@ class RoomConsumer(AsyncWebsocketConsumer):
     async def connect(self):
         # Immediate Handshake
         await self.accept()
+
+        # Initialise redis as None
+        self.redis=None
 
         try:
             # Authenticity Check
@@ -22,6 +27,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
             self.user = self.scope["user"]
             self.username = self.user.username
             
+            redis_host = os.getenv("REDIS_HOST", "redis")
             self.redis = redis.Redis(host="redis", port=6379, decode_responses=True)
             self.room = await self.get_room()
             self.room_group_name = f"calls_{self.room_id}"
@@ -55,7 +61,7 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 },
             )
         except Exception as e:
-            print(f"Connection Error: {e}")
+            logging.error(f"WebSocket Connection Error: {e}")
             await self.close(code=4000)
     
     async def receive(self, text_data):
