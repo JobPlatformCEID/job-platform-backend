@@ -9,48 +9,54 @@ import json
 class RoomConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
-        if self.scope['user'].is_anonymous:
-            return await self.close(code=4001)
-
-        # Redis connection
-        self.redis = redis.Redis(host="redis", port=6379, decode_responses=True)
-
-        self.room_id = self.scope['url_route']['kwargs']['room_id']
-        self.room_group_name = f"calls_{self.room_id}"
-        self.redis_key = f"room:{self.room_id}:users"
-
-        self.user = self.scope["user"]
-        self.username = self.user.username
-
-        self.room = await self.get_room()
-
-        # too early
-        if timezone.now() < self.room.meeting_date:
-            return await self.close(code=4003)
-
-        # host activates room
-        if self.user.id == self.room.host_id:
-            await self.set_room_active(True)
-
-        # block non-host if room inactive
-        if not self.room.is_active and self.user.id != self.room.host_id:
-            users = await self.get_room_users()
-            if not any(u['id'] == self.room.host_id for u in users):
-                return await self.close(code=4004)
-
-        await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+        # Immediate Handshake
         await self.accept()
 
-        await self.add_user_to_room()
+        try:
+            # Authenticity Check
+            if self.scope['user'].is_anonymous:
+                await self.close(code=4001)
+                return
 
-        await self.channel_layer.group_send(
-            self.room_group_name,
-            {
-                'type': 'user_joined',
-                'username': self.username,
-                'users': await self.get_room_users(),
-            },
-        )
+            self.room_id = self.scope['url_route']['kwargs']['room_id']
+            self.user = self.scope["user"]
+            self.username = self.user.username
+            
+            self.redis = redis.Redis(host="redis", port=6379, decode_responses=True)
+            self.room = await self.get_room()
+            self.room_group_name = f"calls_{self.room_id}"
+            self.redis_key = f"room:{self.room_id}:users"
+
+            # time Validation
+            if timezone.now() < self.room.meeting_date:
+                await self.close(code=4003)
+                return
+
+            # host Activation
+            if self.user.id == self.room.host_id:
+                await self.set_room_active(True)
+                self.room.is_active = True
+
+            # permission Check (Block candidate if room is not active)
+            if not self.room.is_active and self.user.id != self.room.host_id:
+                await self.close(code=4004)
+                return
+
+            # finalize connection
+            await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+            await self.add_user_to_room()
+
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type': 'user_joined',
+                    'username': self.username,
+                    'users': await self.get_room_users(),
+                },
+            )
+        except Exception as e:
+            print(f"Connection Error: {e}")
+            await self.close(code=4000)
     
     async def receive(self, text_data):
         data = json.loads(text_data)
