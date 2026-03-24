@@ -185,3 +185,40 @@ class UserTests(TestCase):
         })
         profile = CandidateProfile.objects.get(user=self.candidate)
         self.assertNotEqual(profile.score, 999)
+    
+    def test_login_nonexistent_user(self):
+        response = self.client.post('/api/auth/login/', {
+            'username': 'doesnotexist',
+            'password': 'password'
+        })
+        self.assertEqual(response.status_code, 401)
+ 
+    def test_candidate_partial_update(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.patch('/api/candidates/me/', {
+            'location': 'Thessaloniki'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['location'], 'Thessaloniki')
+ 
+    def test_employer_partial_update(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        response = self.client.patch('/api/employers/me/', {
+            'description': 'New description only'
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['description'], 'New description only')
+ 
+    def test_candidate_profile_default_score_is_zero(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get('/api/candidates/me/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['score'], 0)
+ 
+    def test_employer_cannot_update_candidate_profile(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        response = self.client.put('/api/candidates/me/', {
+            'location': 'Athens',
+            'bio': 'Hacked'
+        })
+        self.assertEqual(response.status_code, 403)

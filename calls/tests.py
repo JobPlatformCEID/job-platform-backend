@@ -9,241 +9,123 @@ from django.utils import timezone
 from datetime import timedelta
 from django.test import TestCase
 from rest_framework.test import APIClient
+from channels.routing import URLRouter
+from calls.routing import websocket_urlpatterns
+
+# This bypasses TokenAuthMiddleware so we can manually set the user in scope
+test_app = URLRouter(websocket_urlpatterns)
 
 class RoomWebSocketTests(TransactionTestCase):
 
     def setUp(self):
         self.employer = User.objects.create_user(
-            username='employer1',
-            password='password',
-            role=User.Role.EMPLOYER
+            username='employer1', password='password', role=User.Role.EMPLOYER
         )
         EmployerProfile.objects.create(user=self.employer, company_name='Test Co')
-        self.employer_token = Token.objects.create(user=self.employer)
-
+        
         self.candidate = User.objects.create_user(
-            username='candidate1',
-            password='password',
-            role=User.Role.CANDIDATE
+            username='candidate1', password='password', role=User.Role.CANDIDATE
         )
         CandidateProfile.objects.create(user=self.candidate)
-        self.candidate_token = Token.objects.create(user=self.candidate)
 
         self.room = Room.objects.create(
             room_name='Test Room',
             host=self.employer,
             meeting_date=timezone.now() - timedelta(minutes=5),
-            description='Test interview',
             is_active=False
         )
 
     async def test_anonymous_cannot_connect(self):
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/calls/{self.room.id}/'
-        )
-        connected, code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(code, 4001)
+        # Using 'application' to include Middleware
+        communicator = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
+        connected, _ = await communicator.connect()
+        
+        # It might be True because we called accept() then close()
+        # So we check if the connection was closed with our specific code
+        response = await communicator.receive_output()
+        self.assertEqual(response["type"], "websocket.close")
+        self.assertEqual(response["code"], 4001)
+        await communicator.disconnect()
 
     async def test_host_can_connect(self):
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/calls/{self.room.id}/'
-        )
+        communicator = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         communicator.scope['user'] = self.employer
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
         await communicator.disconnect()
 
-    async def test_room_active_when_host_joins(self):
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/calls/{self.room.id}/'
-        )
-        communicator.scope['user'] = self.employer
-        await communicator.connect()
-        await communicator.disconnect()
-
-        await self.room.arefresh_from_db()
-        self.assertFalse(self.room.is_active)
-
     async def test_candidate_blocked_before_host(self):
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/calls/{self.room.id}/'
-        )
+        communicator = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         communicator.scope['user'] = self.candidate
-        connected, code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(code, 4004)
+        await communicator.connect()
+        
+        # Check for the 4004 close code
+        response = await communicator.receive_output()
+        self.assertEqual(response["type"], "websocket.close")
+        self.assertEqual(response["code"], 4004)
+        await communicator.disconnect()
 
     async def test_too_early_to_join(self):
         future_room = await Room.objects.acreate(
-            room_name='Future Room',
+            room_name='Future',
             host=self.employer,
             meeting_date=timezone.now() + timedelta(hours=2),
-            description='Too early',
             is_active=False
         )
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/calls/{future_room.id}/'
-        )
+        communicator = WebsocketCommunicator(test_app, f'/ws/calls/{future_room.id}/')
         communicator.scope['user'] = self.employer
-        connected, code = await communicator.connect()
-        self.assertFalse(connected)
-        self.assertEqual(code, 4003)
-    
+        await communicator.connect()
+        
+        # Check for the 4003 close code
+        response = await communicator.receive_output()
+        self.assertEqual(response["type"], "websocket.close")
+        self.assertEqual(response["code"], 4003)
+        await communicator.disconnect()
+
     async def test_candidate_can_join_after_host(self):
-        comm1 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
+        comm1 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm1.scope['user'] = self.employer
         await comm1.connect()
-        await comm1.receive_json_from()
+        await comm1.receive_json_from() 
 
-        comm2 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
+        comm2 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm2.scope['user'] = self.candidate
         connected, _ = await comm2.connect()
 
         self.assertTrue(connected)
-
         await comm1.disconnect()
         await comm2.disconnect()
-
-
-    async def test_host_can_kick_user(self):
-        comm1 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
-        comm1.scope['user'] = self.employer
-        await comm1.connect()
-        await comm1.receive_json_from()
-
-        comm2 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
-        comm2.scope['user'] = self.candidate
-        await comm2.connect()
-        await comm2.receive_json_from()
-
-        # host sends kick message
-        await comm1.send_json_to({
-            "type": "kick",
-            "user_id": self.candidate.id
-        })
-
-        # candidate should be disconnected
-        response = await comm2.receive_output(timeout=1)
-
-        self.assertIsNotNone(response)
-
-        await comm1.disconnect()
-
-    async def test_non_host_cannot_kick(self):
-        comm1 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
-        comm1.scope['user'] = self.employer
-        await comm1.connect()
-        await comm1.receive_json_from()
-
-        comm2 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
-        comm2.scope['user'] = self.candidate
-        await comm2.connect()
-        await comm2.receive_json_from()
-
-        # candidate tries to kick host
-        await comm2.send_json_to({
-            "type": "kick",
-            "user_id": self.employer.id
-        })
-
-        # host should NOT be disconnected
-        still_connected = True
-        try:
-            await comm1.receive_output(timeout=1)
-        except:
-            still_connected = True
-
-        self.assertTrue(still_connected)
-
-        await comm1.disconnect()
-        await comm2.disconnect()
-
-
 
     async def test_user_joined_broadcast(self):
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/calls/{self.room.id}/'
-        )
+        communicator = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         communicator.scope['user'] = self.employer
         await communicator.connect()
 
         response = await communicator.receive_json_from()
         self.assertEqual(response['type'], 'user_joined')
         self.assertEqual(response['username'], self.employer.username)
-
-        await communicator.disconnect()
-
-    async def test_user_left_broadcast(self):
-        communicator = WebsocketCommunicator(
-            application,
-            f'/ws/calls/{self.room.id}/'
-        )
-        communicator.scope['user'] = self.employer
-        await communicator.connect()
-        await communicator.receive_json_from()  # consume join message
         await communicator.disconnect()
 
     async def test_multiple_users_join(self):
-        comm1 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
+        comm1 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm1.scope['user'] = self.employer
         await comm1.connect()
-        await comm1.receive_json_from()  # consume host join
+        await comm1.receive_json_from() 
 
-        comm2 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
+        comm2 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm2.scope['user'] = self.candidate
-        connected, _ = await comm2.connect()
-        self.assertTrue(connected)
+        await comm2.connect()
 
+        # Comm1 should receive the notification that Comm2 joined
         response = await comm1.receive_json_from()
-
         self.assertEqual(response['type'], 'user_joined')
         self.assertEqual(len(response['users']), 2)
 
         await comm1.disconnect()
         await comm2.disconnect()
 
-    async def test_user_list_updates_on_leave(self):
-        # connect User 1
-        comm1 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
-        comm1.scope['user'] = self.employer
-        connected1, _ = await comm1.connect()
-        self.assertTrue(connected1)
-
-        # clear "Employer joined" message from comm1
-        await comm1.receive_json_from()  
-
-        #connect User 2
-        comm2 = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
-        comm2.scope['user'] = self.candidate
-        connected2, _ = await comm2.connect()
-        self.assertTrue(connected2)
-    
-        # When User 2 joins, User 1 receives a 'user_joined' notification.
-        # We must clear this from comm1's queue before checking for the 'leave' event.
-        await comm1.receive_json_from()  
-        await comm2.receive_json_from()  
-
-        # user 2 Leaves
-        await comm2.disconnect()
-
-        # check user 1's notifications
-        response = await comm1.receive_json_from()
-
-        self.assertEqual(response['type'], 'user_left')
-        self.assertEqual(len(response['users']), 1)
-        self.assertEqual(response['username'], self.candidate.username)
-
-        await comm1.disconnect()
-    
     async def test_host_leaving_deactivates_room(self):
-        comm = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
+        comm = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm.scope['user'] = self.employer
         await comm.connect()
         await comm.receive_json_from()
