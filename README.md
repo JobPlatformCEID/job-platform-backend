@@ -108,6 +108,15 @@ docker compose exec django python manage.py createsuperuser
 | POST | `/api/conversations/` | Start or retrieve a conversation | Token |
 | GET | `/api/conversations/<id>/messages/` | List all messages in a conversation | Token |
 
+### Calls
+| Event | Endpoint | Description | Auth |
+|-------|----------|-------------|------|
+| GET | `/api/calls/` | List all available call rooms
+| POST | `/api/calls/` | Create a new room (Restricted to Employers; includes past-date validation)
+| GET | `/api/calls/<id>/` | Get room details
+| PUT | `/api/calls/<id>/` | Update room (Restricted to Room Host)
+| DELETE | `/api/calls/<id>/` | Delete room (Restricted to Room Host)
+
 ### WebSocket
 | Event | Endpoint | Description | Auth |
 |-------|----------|-------------|------|
@@ -115,6 +124,15 @@ docker compose exec django python manage.py createsuperuser
 | Send | `{"content": "..."}` | Send a message | - |
 | Receive (message) | `{"type": "message", "message_id": ..., "content": ..., "sender_id": ..., "sender_username": ..., "created_at": ...}` | Incoming message | - |
 | Receive (read) | `{"type": "read", "reader_id": ..., "reader_username": ...}` | Read receipt | - |
+| Connect | `ws://.../ws/calls/<room_id>/` | Join a call room (Checks room date & host status) | Token |
+| Receive | `user_joined` | Broadcasts when a new user enters with the updated user list | - |
+| Receive | `user_left` | Broadcasts when a user disconnects | - |
+| Send | `{"type": "kick", "user_id": <id>}` | Allows the Host to remove a user from the room | Host Only |
+
+**Custom Error Codes:**
+* `4001`: Anonymous user (No Token)
+* `4003`: Meeting date is in the future / User was kicked
+* `4004`: Room is inactive (Host has not joined yet)
 
 REST APIs were tested with Postman.
 WebSocket connections were tested via https://websocketking.com
