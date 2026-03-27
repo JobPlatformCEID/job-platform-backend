@@ -51,3 +51,30 @@ class MessageListView(generics.ListAPIView):
         if self.request.user not in conversation.participants.all():
             raise PermissionDenied('You are not a participant of this conversation.')
         return Message.objects.filter(conversation=conversation)
+
+class ConversationDeleteView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        try:
+            conversation = Conversation.objects.get(pk=self.kwargs.get('pk'))
+        except Conversation.DoesNotExist:
+            raise NotFound('Conversation not found.')
+        if self.request.user not in conversation.participants.all():
+            raise PermissionDenied('You are not a participant of this conversation.')
+        return conversation
+
+class MessageDeleteView(generics.DestroyAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        try:
+            message = Message.objects.get(
+                pk=self.kwargs.get('message_pk'),
+                conversation_id=self.kwargs.get('pk')
+            )
+        except Message.DoesNotExist:
+            raise NotFound('Message not found.')
+        if message.sender != self.request.user:
+            raise PermissionDenied('You can only delete your own messages.')
+        return message

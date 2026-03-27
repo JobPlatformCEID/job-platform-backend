@@ -106,7 +106,9 @@ docker compose exec django python manage.py createsuperuser
 |--------|----------|-------------|------|
 | GET | `/api/conversations/` | List all conversations | Token |
 | POST | `/api/conversations/` | Start or retrieve a conversation | Token |
+| DELETE | `/api/conversations/<id>/` | Delete a conversation and all its messages | Token |
 | GET | `/api/conversations/<id>/messages/` | List all messages in a conversation | Token |
+| DELETE | `/api/conversations/<id>/messages/<message_id>/` | Delete a message (sender only) | Token |
 
 ### Calls
 | Event | Endpoint | Description | Auth |
@@ -166,3 +168,4 @@ Authorization: Token <your-token>
 - Added reviews and some tests in reviews/tests.py
 - Added social networking and some tests in social/tests.py
 - Added messaging with WebSocket connections and some tests in messaging/tests.py
+- Added support for deleting conversations and messages in messaging app
