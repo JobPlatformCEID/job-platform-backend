@@ -163,9 +163,69 @@ class RoomConsumer(AsyncWebsocketConsumer):
         )
 
 
-class Messaging(RoomConsumer):
-    pass
-
-
 class VideoCalls(RoomConsumer):
+    async def receive(self , text_data):
+        data = json.loads(text_data)
+        action = data.get('type')
+
+        if action == 'kick':
+            await self.kick(data.get('user_id'))
+        elif action == 'offer':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type':'webrtc_offer',
+                    'offer':data['offer'],
+                    'sender':self.username,
+                    'target':data.get('target'),
+                }
+            )
+        elif action == 'answer':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type':'webrtc_answer',
+                    'offer':data['offer'],
+                    'sender':self.username,
+                    'target':data.get('target'),
+                }
+            )
+        elif action == 'ice_candidate':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type':'webrtc_ice',
+                    'offer':data['offer'],
+                    'sender':self.username,
+                    'target':data.get('target'),
+                }
+            )
+    
+    async def webrtc_offer(self, event):
+        # Only send to the intended target
+        if event.get('target') == self.username:
+            await self.send(text_data=json.dumps({
+                'type': 'offer',
+                'offer': event['offer'],
+                'sender': event['sender'],
+            }))
+    
+    async def webrtc_answer(self, event):
+        if event.get('target') == self.username:
+            await self.send(text_data=json.dumps({
+                'type': 'answer',
+                'answer': event['answer'],
+                'sender': event['sender'],
+            }))
+
+    async def webrtc_ice(self, event):
+        if event.get('target') == self.username:
+            await self.send(text_data=json.dumps({
+                'type': 'ice_candidate',
+                'candidate': event['candidate'],
+                'sender': event['sender'],
+            }))
+
+
+class Messaging(RoomConsumer):
     pass
