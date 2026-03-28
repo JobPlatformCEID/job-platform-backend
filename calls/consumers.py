@@ -20,11 +20,13 @@ class InMemoryUserStore:
     _store: dict = {}
 
     async def add_user(self, room_id, user_id, username):
+        room_id = str(room_id)
         if room_id not in self._store:
             self._store[room_id] = {}
         self._store[room_id][str(user_id)] = username
 
     async def remove_user(self, room_id, user_id):
+        room_id = str(room_id)
         if room_id in self._store:
             self._store[room_id].pop(str(user_id), None)
             if not self._store[room_id]:
@@ -33,8 +35,12 @@ class InMemoryUserStore:
     async def get_users(self, room_id):
         return [
             {'id': int(uid), 'username': uname}
-            for uid, uname in self._store.get(room_id, {}).items()
+            for uid, uname in self._store.get(str(room_id), {}).items()
         ]
+
+    @classmethod
+    def clear(cls):
+        cls._store.clear()
 
 
 class RedisUserStore:

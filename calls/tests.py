@@ -34,6 +34,12 @@ class RoomWebSocketTests(TransactionTestCase):
             is_active=False
         )
 
+    def tearDown(self):
+        # Clears the in-memory store after every WebSocket test
+        from calls.consumers import InMemoryUserStore
+        InMemoryUserStore.clear()
+        super().tearDown()
+
     async def test_anonymous_cannot_connect(self):
         communicator = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
         connected, _ = await communicator.connect()
@@ -154,6 +160,12 @@ class RoomAPITests(TestCase):
             meeting_date=timezone.now() + timedelta(hours=1),
             description='Test interview',
         )
+
+    def tearDown(self):
+        # Also clearing here in case API calls triggered consumer side-effects
+        from calls.consumers import InMemoryUserStore
+        InMemoryUserStore.clear()
+        super().tearDown()
 
     def test_create_room_invalid_data(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
