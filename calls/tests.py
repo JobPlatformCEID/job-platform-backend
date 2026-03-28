@@ -1,19 +1,18 @@
 from channels.testing import WebsocketCommunicator
-from channels.layers import get_channel_layer
-from django.test import TransactionTestCase
-from rest_framework.authtoken.models import Token
-from users.models import User, EmployerProfile, CandidateProfile
-from calls.models import Room
-from core.asgi import application
+from django.test import TransactionTestCase, TestCase
 from django.utils import timezone
 from datetime import timedelta
-from django.test import TestCase
+from rest_framework.authtoken.models import Token
 from rest_framework.test import APIClient
 from channels.routing import URLRouter
-from calls.routing import websocket_urlpatterns
 
-# This bypasses TokenAuthMiddleware so we can manually set the user in scope
+from calls.models import Room
+from calls.routing import websocket_urlpatterns
+from core.asgi import application
+from users.models import User, EmployerProfile, CandidateProfile
+
 test_app = URLRouter(websocket_urlpatterns)
+
 
 class RoomWebSocketTests(TransactionTestCase):
 
@@ -22,7 +21,7 @@ class RoomWebSocketTests(TransactionTestCase):
             username='employer1', password='password', role=User.Role.EMPLOYER
         )
         EmployerProfile.objects.create(user=self.employer, company_name='Test Co')
-        
+
         self.candidate = User.objects.create_user(
             username='candidate1', password='password', role=User.Role.CANDIDATE
         )
@@ -35,16 +34,18 @@ class RoomWebSocketTests(TransactionTestCase):
             is_active=False
         )
 
+    def tearDown(self):
+        # Clears the in-memory store after every WebSocket test
+        from calls.consumers import InMemoryUserStore
+        InMemoryUserStore.clear()
+        super().tearDown()
+
     async def test_anonymous_cannot_connect(self):
-        # Using 'application' to include Middleware
         communicator = WebsocketCommunicator(application, f'/ws/calls/{self.room.id}/')
         connected, _ = await communicator.connect()
-        
-        # It might be True because we called accept() then close()
-        # So we check if the connection was closed with our specific code
         response = await communicator.receive_output()
-        self.assertEqual(response["type"], "websocket.close")
-        self.assertEqual(response["code"], 4001)
+        self.assertEqual(response['type'], 'websocket.close')
+        self.assertEqual(response['code'], 4001)
         await communicator.disconnect()
 
     async def test_host_can_connect(self):
@@ -52,17 +53,16 @@ class RoomWebSocketTests(TransactionTestCase):
         communicator.scope['user'] = self.employer
         connected, _ = await communicator.connect()
         self.assertTrue(connected)
+        await communicator.receive_json_from()
         await communicator.disconnect()
 
     async def test_candidate_blocked_before_host(self):
         communicator = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         communicator.scope['user'] = self.candidate
         await communicator.connect()
-        
-        # Check for the 4004 close code
         response = await communicator.receive_output()
-        self.assertEqual(response["type"], "websocket.close")
-        self.assertEqual(response["code"], 4004)
+        self.assertEqual(response['type'], 'websocket.close')
+        self.assertEqual(response['code'], 4004)
         await communicator.disconnect()
 
     async def test_too_early_to_join(self):
@@ -75,24 +75,22 @@ class RoomWebSocketTests(TransactionTestCase):
         communicator = WebsocketCommunicator(test_app, f'/ws/calls/{future_room.id}/')
         communicator.scope['user'] = self.employer
         await communicator.connect()
-        
-        # Check for the 4003 close code
         response = await communicator.receive_output()
-        self.assertEqual(response["type"], "websocket.close")
-        self.assertEqual(response["code"], 4003)
+        self.assertEqual(response['type'], 'websocket.close')
+        self.assertEqual(response['code'], 4003)
         await communicator.disconnect()
 
     async def test_candidate_can_join_after_host(self):
         comm1 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm1.scope['user'] = self.employer
         await comm1.connect()
-        await comm1.receive_json_from() 
+        await comm1.receive_json_from()
 
         comm2 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm2.scope['user'] = self.candidate
         connected, _ = await comm2.connect()
-
         self.assertTrue(connected)
+
         await comm1.disconnect()
         await comm2.disconnect()
 
@@ -100,7 +98,6 @@ class RoomWebSocketTests(TransactionTestCase):
         communicator = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         communicator.scope['user'] = self.employer
         await communicator.connect()
-
         response = await communicator.receive_json_from()
         self.assertEqual(response['type'], 'user_joined')
         self.assertEqual(response['username'], self.employer.username)
@@ -110,13 +107,12 @@ class RoomWebSocketTests(TransactionTestCase):
         comm1 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm1.scope['user'] = self.employer
         await comm1.connect()
-        await comm1.receive_json_from() 
+        await comm1.receive_json_from()
 
         comm2 = WebsocketCommunicator(test_app, f'/ws/calls/{self.room.id}/')
         comm2.scope['user'] = self.candidate
         await comm2.connect()
 
-        # Comm1 should receive the notification that Comm2 joined
         response = await comm1.receive_json_from()
         self.assertEqual(response['type'], 'user_joined')
         self.assertEqual(len(response['users']), 2)
@@ -129,7 +125,6 @@ class RoomWebSocketTests(TransactionTestCase):
         comm.scope['user'] = self.employer
         await comm.connect()
         await comm.receive_json_from()
-
         await comm.disconnect()
 
         await self.room.arefresh_from_db()
@@ -142,25 +137,19 @@ class RoomAPITests(TestCase):
         self.client = APIClient()
 
         self.employer1 = User.objects.create_user(
-            username='employer1',
-            password='password',
-            role=User.Role.EMPLOYER
+            username='employer1', password='password', role=User.Role.EMPLOYER
         )
         EmployerProfile.objects.create(user=self.employer1, company_name='Company One')
         self.employer1_token = Token.objects.create(user=self.employer1)
 
         self.employer2 = User.objects.create_user(
-            username='employer2',
-            password='password',
-            role=User.Role.EMPLOYER
+            username='employer2', password='password', role=User.Role.EMPLOYER
         )
         EmployerProfile.objects.create(user=self.employer2, company_name='Company Two')
         self.employer2_token = Token.objects.create(user=self.employer2)
 
         self.candidate = User.objects.create_user(
-            username='candidate1',
-            password='password',
-            role=User.Role.CANDIDATE
+            username='candidate1', password='password', role=User.Role.CANDIDATE
         )
         CandidateProfile.objects.create(user=self.candidate)
         self.candidate_token = Token.objects.create(user=self.candidate)
@@ -171,14 +160,17 @@ class RoomAPITests(TestCase):
             meeting_date=timezone.now() + timedelta(hours=1),
             description='Test interview',
         )
-    
+
+    def tearDown(self):
+        # Also clearing here in case API calls triggered consumer side-effects
+        from calls.consumers import InMemoryUserStore
+        InMemoryUserStore.clear()
+        super().tearDown()
+
     def test_create_room_invalid_data(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
-        response = self.client.post('/api/calls/', {
-            'room_name': '',
-        })
+        response = self.client.post('/api/calls/', {'room_name': ''})
         self.assertEqual(response.status_code, 400)
-
 
     def test_employer_can_create_room(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
@@ -203,7 +195,6 @@ class RoomAPITests(TestCase):
         response = self.client.delete(f'/api/calls/{self.room.id}/')
         self.assertEqual(response.status_code, 403)
 
-
     def test_unauthenticated_cannot_create_room(self):
         response = self.client.post('/api/calls/', {
             'room_name': 'New Interview',
@@ -224,17 +215,13 @@ class RoomAPITests(TestCase):
 
     def test_host_can_update_room(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
-        response = self.client.patch(f'/api/calls/{self.room.id}/', {
-            'room_name': 'Updated Room'
-        })
+        response = self.client.patch(f'/api/calls/{self.room.id}/', {'room_name': 'Updated Room'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['room_name'], 'Updated Room')
 
     def test_other_employer_cannot_update_room(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer2_token.key)
-        response = self.client.patch(f'/api/calls/{self.room.id}/', {
-            'room_name': 'Hacked'
-        })
+        response = self.client.patch(f'/api/calls/{self.room.id}/', {'room_name': 'Hacked'})
         self.assertEqual(response.status_code, 403)
 
     def test_host_can_delete_room(self):
