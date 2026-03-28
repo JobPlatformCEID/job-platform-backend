@@ -132,6 +132,9 @@ if 'test' in sys.argv:
             "BACKEND": "channels.layers.InMemoryChannelLayer",
         }
     }
+
+    CALL_USER_STORE = 'memory'
+    
 else:
     CHANNEL_LAYERS = {
         "default": {

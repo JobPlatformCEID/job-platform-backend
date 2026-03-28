@@ -16,16 +16,64 @@ def _room_key(room_id):
     return f"room:{room_id}:users"
 
 
-async def _get_redis():
-    redis_url = settings.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]
-    host, port = redis_url
-    return await aioredis.from_url(f"redis://{host}:{port}")
+class InMemoryUserStore:
+    _store: dict = {}
+
+    async def add_user(self, room_id, user_id, username):
+        if room_id not in self._store:
+            self._store[room_id] = {}
+        self._store[room_id][str(user_id)] = username
+
+    async def remove_user(self, room_id, user_id):
+        if room_id in self._store:
+            self._store[room_id].pop(str(user_id), None)
+            if not self._store[room_id]:
+                del self._store[room_id]
+
+    async def get_users(self, room_id):
+        return [
+            {'id': int(uid), 'username': uname}
+            for uid, uname in self._store.get(room_id, {}).items()
+        ]
+
+
+class RedisUserStore:
+    async def _redis(self):
+        host, port = settings.CHANNEL_LAYERS["default"]["CONFIG"]["hosts"][0]
+        return await aioredis.from_url(f"redis://{host}:{port}")
+
+    async def add_user(self, room_id, user_id, username):
+        r = await self._redis()
+        await r.hset(_room_key(room_id), user_id, username)
+        await r.aclose()
+
+    async def remove_user(self, room_id, user_id):
+        r = await self._redis()
+        await r.hdel(_room_key(room_id), user_id)
+        await r.aclose()
+
+    async def get_users(self, room_id):
+        r = await self._redis()
+        raw = await r.hgetall(_room_key(room_id))
+        await r.aclose()
+        return [
+            {'id': int(uid), 'username': uname.decode()}
+            for uid, uname in raw.items()
+        ]
+
+
+def _get_user_store():
+    if getattr(settings, 'CALL_USER_STORE', 'redis') == 'memory':
+        return InMemoryUserStore()
+    return RedisUserStore()
 
 
 class RoomConsumer(AsyncWebsocketConsumer):
 
     async def connect(self):
         await self.accept()
+        self._joined = False
+        self._store  = _get_user_store()
 
         try:
             self.user = self.scope.get('user')
@@ -62,9 +110,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
                 self.room.is_active = True
 
             await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-            await self.add_user()
+            await self._store.add_user(self.room_id, self.user.id, self.username)
+            self._joined = True
 
-            users = await self.get_users()
+            users = await self._store.get_users(self.room_id)
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {'type': 'user_joined', 'username': self.username, 'users': users},
@@ -75,11 +124,11 @@ class RoomConsumer(AsyncWebsocketConsumer):
             await self.close(code=4000)
 
     async def disconnect(self, code):
-        if not hasattr(self, 'room_group_name'):
+        if not hasattr(self, 'room_group_name') or not self._joined:
             return
 
-        await self.remove_user()
-        users = await self.get_users()
+        await self._store.remove_user(self.room_id, self.user.id)
+        users = await self._store.get_users(self.room_id)
 
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -95,25 +144,6 @@ class RoomConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         if data.get('type') == 'kick':
             await self.kick(data.get('user_id'))
-
-    async def add_user(self):
-        r = await _get_redis()
-        await r.hset(_room_key(self.room_id), self.user.id, self.username)
-        await r.aclose()
-
-    async def remove_user(self):
-        r = await _get_redis()
-        await r.hdel(_room_key(self.room_id), self.user.id)
-        await r.aclose()
-
-    async def get_users(self):
-        r = await _get_redis()
-        raw = await r.hgetall(_room_key(self.room_id))
-        await r.aclose()
-        return [
-            {'id': int(uid), 'username': uname.decode()}
-            for uid, uname in raw.items()
-        ]
 
     @database_sync_to_async
     def get_user_from_token(self, token_key):
@@ -223,5 +253,30 @@ class VideoCalls(RoomConsumer):
                 'candidate': event['candidate'],
                 'sender':    event['sender'],
             }))
+
+
 class Messaging(RoomConsumer):
-    pass
+
+    async def receive(self, text_data):
+        data   = json.loads(text_data)
+        action = data.get('type')
+
+        if action == 'kick':
+            await self.kick(data.get('user_id'))
+
+        elif action == 'message':
+            await self.channel_layer.group_send(
+                self.room_group_name,
+                {
+                    'type':    'chat_message',
+                    'sender':  self.username,
+                    'message': data.get('message', ''),
+                },
+            )
+
+    async def chat_message(self, event):
+        await self.send(text_data=json.dumps({
+            'type':    'message',
+            'sender':  event['sender'],
+            'message': event['message'],
+        }))
