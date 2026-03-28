@@ -4,17 +4,16 @@ from django.utils import timezone
 from .models import Room
 from rest_framework.authtoken.models import Token
 from urllib.parse import parse_qs
-import redis.asyncio as redis
 import json
 import logging
-import os
 
 
 class RoomConsumer(AsyncWebsocketConsumer):
+    # Class-level storage: shared across all instances, freed when empty
+    _room_users = {}
 
     async def connect(self):
         await self.accept()
-        self.redis = None
 
         try:
             # Token auth via query string
@@ -34,11 +33,8 @@ class RoomConsumer(AsyncWebsocketConsumer):
             self.username = self.user.username
             self.room_id = self.scope['url_route']['kwargs']['room_id']
 
-            redis_host = os.getenv("REDIS_HOST", "redis")
-            self.redis = redis.Redis(host=redis_host, port=6379, decode_responses=True)
             self.room = await self.get_room()
             self.room_group_name = f"calls_{self.room_id}"
-            self.redis_key = f"room:{self.room_id}:users"
 
             # Time validation
             if timezone.now() < self.room.meeting_date:
@@ -50,14 +46,18 @@ class RoomConsumer(AsyncWebsocketConsumer):
             self.room.is_active = True
 
             await self.channel_layer.group_add(self.room_group_name, self.channel_name)
-            await self.add_user_to_room()
 
+            # Add user to room tracking
+            await self.add_user()
+
+            # Get users and broadcast
+            users = await self.get_users()
             await self.channel_layer.group_send(
                 self.room_group_name,
                 {
                     'type': 'user_joined',
                     'username': self.username,
-                    'users': await self.get_room_users(),
+                    'users': users,
                 },
             )
 
@@ -75,14 +75,16 @@ class RoomConsumer(AsyncWebsocketConsumer):
         if not hasattr(self, 'room_group_name'):
             return
 
-        await self.remove_user_from_room()
+        # Remove user from tracking
+        await self.remove_user()
+        users = await self.get_users()
 
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'user_left',
                 'username': self.username,
-                'users': await self.get_room_users(),
+                'users': users,
             },
         )
 
@@ -91,25 +93,24 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
 
-        if self.redis:
-            await self.redis.aclose()
+    @database_sync_to_async
+    def add_user(self):
+        if self.room_id not in self._room_users:
+            self._room_users[self.room_id] = []
+        if not any(u['id'] == self.user.id for u in self._room_users[self.room_id]):
+            self._room_users[self.room_id].append({'id': self.user.id, 'username': self.username})
 
-    # Redis user management
+    @database_sync_to_async
+    def remove_user(self):
+        if self.room_id in self._room_users:
+            self._room_users[self.room_id] = [u for u in self._room_users[self.room_id] if u['id'] != self.user.id]
+            # Free memory when room is empty
+            if not self._room_users[self.room_id]:
+                del self._room_users[self.room_id]
 
-    async def get_room_users(self):
-        users = await self.redis.get(self.redis_key)
-        return json.loads(users) if users else []
-
-    async def add_user_to_room(self):
-        users = await self.get_room_users()
-        if not any(u['id'] == self.user.id for u in users):
-            users.append({'id': self.user.id, 'username': self.username})
-        await self.redis.set(self.redis_key, json.dumps(users))
-
-    async def remove_user_from_room(self):
-        users = await self.get_room_users()
-        users = [u for u in users if u['id'] != self.user.id]
-        await self.redis.set(self.redis_key, json.dumps(users))
+    @database_sync_to_async
+    def get_users(self):
+        return self._room_users.get(self.room_id, [])
 
     # DB operations
 
@@ -134,14 +135,14 @@ class RoomConsumer(AsyncWebsocketConsumer):
         await self.send(text_data=json.dumps({
             'type': 'user_joined',
             'username': event['username'],
-            'users': event['users'],
+            'users': event.get('users', []),
         }))
 
     async def user_left(self, event):
         await self.send(text_data=json.dumps({
             'type': 'user_left',
             'username': event['username'],
-            'users': event['users'],
+            'users': event.get('users', []),
         }))
 
     async def kicked_handler(self, event):
