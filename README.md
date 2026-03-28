@@ -126,13 +126,27 @@ docker compose exec django python manage.py createsuperuser
 | Send | `{"content": "..."}` | Send a message | - |
 | Receive (message) | `{"type": "message", "message_id": ..., "content": ..., "sender_id": ..., "sender_username": ..., "created_at": ...}` | Incoming message | - |
 | Receive (read) | `{"type": "read", "reader_id": ..., "reader_username": ...}` | Read receipt | - |
-| Connect | `ws://.../ws/calls/<room_id>/` | Join a call room (Checks room date & host status) | Token |
-| Receive | `user_joined` | Broadcasts when a new user enters with the updated user list | - |
-| Receive | `user_left` | Broadcasts when a user disconnects | - |
-| Send | `{"type": "kick", "user_id": <id>}` | Allows the Host to remove a user from the room | Host Only |
+| Connect | `ws://<host>:8000/ws/calls/<room_id>/?token=<token>` | Join a call room | Token |
+| Receive | `{"type": "user_joined", "username": ..., "users": [...]}` | User joined broadcast with user list | - |
+| Receive | `{"type": "user_left", "username": ..., "users": [...]}` | User left broadcast | - |
+| Send | `{"type": "offer", "target": "...", "offer": {...}}` | WebRTC offer | - |
+| Send | `{"type": "answer", "target": "...", "answer": {...}}` | WebRTC answer | - |
+| Send | `{"type": "ice_candidate", "target": "...", "candidate": {...}}` | ICE candidate | - |
+| Send | `{"type": "kick", "user_id": <id>}` | Host removes a user | Host Only |
+
+### Video Calls (WebRTC Signaling)
+The calls WebSocket supports WebRTC peer-to-peer video calling:
+
+1. Connect to room with token
+2. Wait for `user_joined` events to know who's in the room
+3. Initiate calls by sending `offer` to target users
+4. Handle incoming `offer` with `answer`
+5. Exchange `ice_candidate` for NAT traversal
+
+**Race condition prevention**: Only the user with alphabetically lower username initiates the call. this is still under work and will change in the future (its in the front end and the front end is still underdevelopment).
 
 **Custom Error Codes:**
-* `4001`: Anonymous user (No Token)
+* `4001`: Authentication failed (No/Invalid Token)
 * `4003`: Meeting date is in the future / User was kicked
 * `4004`: Room is inactive (Host has not joined yet)
 
