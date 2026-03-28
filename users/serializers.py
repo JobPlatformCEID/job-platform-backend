@@ -8,13 +8,16 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = User
-        fields = ['username', 'password', 'role']
+        fields = ['username', 'password', 'role', 'first_name', 'last_name', 'email']
 
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
-            role=validated_data['role']
+            role=validated_data['role'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            email=validated_data.get('email', ''),
         )
         if user.role == User.Role.CANDIDATE:
             CandidateProfile.objects.create(user=user)
