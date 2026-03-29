@@ -86,3 +86,16 @@ class Skill(models.Model):
     candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='skills')
     name = models.CharField(max_length=50)
     level = models.CharField(max_length=20, choices=Proficiency.choices, default=Proficiency.BEGINNER)
+
+class Project(models.Model):
+    class ProjectType(models.TextChoices):
+        PROJECT     = 'project',     'Project'
+        PUBLICATION = 'publication', 'Publication'
+
+    candidate   = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='projects')
+    type        = models.CharField(max_length=20, choices=ProjectType.choices, default=ProjectType.PROJECT)
+    title       = models.CharField(max_length=100)
+    description = models.TextField(blank=True)
+    url         = models.URLField(blank=True)
+    start_date  = models.DateField(blank=True, null=True)
+    end_date    = models.DateField(blank=True, null=True)
