@@ -67,6 +67,16 @@ class Education(models.Model):
     ])
     graduation_date = models.DateField(blank=True, null=True)
 
+# to track a users certifications or licenses better like aws etch
+class Certification(models.Model):
+    candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='licenses')
+    name = models.CharField(max_length=100)           
+    issuing_org = models.CharField(max_length=100)           
+    issue_date = models.DateField()
+    expiry_date = models.DateField(blank=True, null=True)    
+    credential_id = models.CharField(max_length=100, blank=True)
+    credential_url = models.URLField(blank=True)                
+
 class Skill(models.Model):
     class Proficiency(models.TextChoices):
         BEGINNER     = 'beginner',     'Beginner'
