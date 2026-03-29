@@ -38,10 +38,19 @@ class EmployerProfile(models.Model):
 
 # Models for candidate users
 class WorkExperience(models.Model):
+    class EmploymentType(models.TextChoices):
+        FULL_TIME  = 'full_time',  'Full Time'
+        PART_TIME  = 'part_time',  'Part Time'
+        FREELANCE  = 'freelance',  'Freelance'
+        INTERNSHIP = 'internship', 'Internship'
+        CONTRACT   = 'contract',   'Contract'
+
     candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='work_experiences')
     title = models.CharField(max_length=100)
     company = models.CharField(max_length=100)
+    employment_type = models.CharField(max_length=20, choices=EmploymentType.choices, default=EmploymentType.FULL_TIME)
     start_date = models.DateField()
+    location = models.CharField(max_length=100, blank=True)
     end_date = models.DateField(blank=True, null=True)
     description = models.TextField(blank=True)
 
@@ -49,6 +58,7 @@ class Education(models.Model):
     candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='educations')
     institution = models.CharField(max_length=100)
     degree = models.CharField(max_length=100)
+    field_of_study = models.CharField(max_length=100, blank=True)
     level = models.CharField(max_length=20, choices=[
         ('high_school', 'High School'),
         ('bachelor', 'Bachelor'),
@@ -58,5 +68,11 @@ class Education(models.Model):
     graduation_date = models.DateField(blank=True, null=True)
 
 class Skill(models.Model):
+    class Proficiency(models.TextChoices):
+        BEGINNER     = 'beginner',     'Beginner'
+        INTERMEDIATE = 'intermediate', 'Intermediate'
+        EXPERT       = 'expert',       'Expert'
+ 
     candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='skills')
     name = models.CharField(max_length=50)
+    level = models.CharField(max_length=20, choices=Proficiency.choices, default=Proficiency.BEGINNER)
