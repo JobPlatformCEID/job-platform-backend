@@ -1,13 +1,11 @@
 from rest_framework import serializers
-from .models import User, CandidateProfile, EmployerProfile, WorkExperience, Education, Skill
+from .models import User, CandidateProfile, EmployerProfile, WorkExperience, Education, Skill, Certification, Project
 
-# Register serializer: Get username, password, role from JSON and create the user
-# After that, also create CandidateProfile or EmployerProfile based on role.
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True)
 
     class Meta:
-        model = User
+        model  = User
         fields = ['username', 'password', 'role']
 
     def create(self, validated_data):
@@ -22,34 +20,96 @@ class RegisterSerializer(serializers.ModelSerializer):
             EmployerProfile.objects.create(user=user)
         return user
 
-# Login serializer: Simple serializer for username and password
+
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()
     password = serializers.CharField()
 
-class CandidateProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = CandidateProfile
-        fields = '__all__'
-        read_only_fields = ['user' , 'score']
 
-class EmployerProfileSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = EmployerProfile
-        fields = '__all__'
-        read_only_fields = ['user']
+# Candidate sub-models 
 
 class WorkExperienceSerializer(serializers.ModelSerializer):
     class Meta:
-        model = WorkExperience
+        model  = WorkExperience
         fields = '__all__'
+        # candidate is set automatically from the logged-in user, not from request body
+        read_only_fields = ['candidate']
+
+    def validate(self, data):
+        start = data.get('start_date', getattr(self.instance, 'start_date', None))
+        end   = data.get('end_date',   getattr(self.instance, 'end_date', None))
+        if end and start and end < start:
+            raise serializers.ValidationError({'end_date': 'End date cannot be before start date.'})
+        return data
+
 
 class EducationSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Education
+        model  = Education
         fields = '__all__'
+        read_only_fields = ['candidate']
+
 
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Skill
+        model  = Skill
         fields = '__all__'
+        read_only_fields = ['candidate']
+
+
+class CertificationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Certification
+        fields = '__all__'
+        read_only_fields = ['candidate']
+
+    def validate(self, data):
+        issue  = data.get('issue_date',  getattr(self.instance, 'issue_date', None))
+        expiry = data.get('expiry_date', getattr(self.instance, 'expiry_date', None))
+        if expiry and issue and expiry < issue:
+            raise serializers.ValidationError({'expiry_date': 'Expiry date cannot be before issue date.'})
+        return data
+
+
+class ProjectSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = Project
+        fields = '__all__'
+        read_only_fields = ['candidate']
+
+    def validate(self, data):
+        start = data.get('start_date', getattr(self.instance, 'start_date', None))
+        end   = data.get('end_date',   getattr(self.instance, 'end_date', None))
+        if end and start and end < start:
+            raise serializers.ValidationError({'end_date': 'End date cannot be before start date.'})
+        return data
+
+
+# Profile serializers
+
+class CandidateProfileSerializer(serializers.ModelSerializer):
+    # Nested read-only: returns full profile in one GET
+    work_experiences = WorkExperienceSerializer(many=True, read_only=True)
+    educations       = EducationSerializer(many=True, read_only=True)
+    skills           = SkillSerializer(many=True, read_only=True)
+    licenses         = CertificationSerializer(many=True, read_only=True)
+    projects         = ProjectSerializer(many=True, read_only=True)
+
+    class Meta:
+        model  = CandidateProfile
+        fields = '__all__'
+        read_only_fields = ['user', 'score']
+
+
+class EmployerProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = EmployerProfile
+        fields = '__all__'
+        read_only_fields = ['user']
+
+
+class UserNameSerializer(serializers.ModelSerializer):
+    """Minimal — just name fields, used by the /me/name/ endpoint."""
+    class Meta:
+        model  = User
+        fields = ['id', 'username', 'first_name', 'last_name']
