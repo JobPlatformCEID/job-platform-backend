@@ -4,7 +4,7 @@ from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.response import Response
 from .models import Review
 from .serializers import ReviewSerializer
-from users.models import User, EmployerProfile
+from users.models import User, EmployerProfile , CandidateProfile , WorkExperience
 
 class ReviewListCreateView(generics.ListCreateAPIView):
     serializer_class = ReviewSerializer
@@ -27,7 +27,16 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         # We agreed that employers shouldn't review other employers
         if self.request.user.role ==  User.Role.EMPLOYER :
             raise PermissionDenied('Employers cannot review other Employers')
-
+        
+        # check users work experience to make sure he worked there in the past
+        try:
+            candidate_profile = CandidateProfile.objects.get(user=self.request.user)
+        except CandidateProfile.DoesNotExist:
+            raise PermissionDenied('Only candidates can leave reviews.')
+        
+        if not WorkExperience.objects.filter(candidate=candidate_profile,company=employer.company_name).exists():
+            raise PermissionDenied('You can only review companies you have worked at.')
+        
         # you can only leave one review if you want a second one delete the last you made
         if Review.objects.filter(employer=employer, owner=self.request.user).exists():
             raise PermissionDenied('You have already reviewed this employer.')
