@@ -20,9 +20,15 @@ class ReviewListCreateView(generics.ListCreateAPIView):
         except EmployerProfile.DoesNotExist:
             raise NotFound('Employer not found.')
 
+        # someone cant review themselves
         if employer.user == self.request.user:
             raise PermissionDenied('You cannot review your own company.')
+        
+        # We agreed that employers shouldn't review other employers
+        if self.request.user.role ==  User.Role.EMPLOYER :
+            raise PermissionDenied('Employers cannot review other Employers')
 
+        # you can only leave one review if you want a second one delete the last you made
         if Review.objects.filter(employer=employer, owner=self.request.user).exists():
             raise PermissionDenied('You have already reviewed this employer.')
 
