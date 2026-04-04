@@ -94,10 +94,18 @@ class CandidateProfileSerializer(serializers.ModelSerializer):
     skills           = SkillSerializer(many=True, read_only=True)
     licenses         = CertificationSerializer(many=True, read_only=True)
     projects         = ProjectSerializer(many=True, read_only=True)
+    full_name = serializers.SerializerMethodField()
 
+    def get_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}".strip()
+    
     class Meta:
         model  = CandidateProfile
-        fields = '__all__'
+        fields = [
+            'id', 'user', 'phone', 'location', 'bio', 'cv', 'score',
+            'full_name', 'work_experiences', 'educations',
+            'skills', 'licenses', 'projects',
+        ]
         read_only_fields = ['user', 'score']
 
 
