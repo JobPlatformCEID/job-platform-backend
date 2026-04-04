@@ -6,13 +6,16 @@ class RegisterSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = User
-        fields = ['username', 'password', 'role']
+        fields = ['username', 'password', 'role', 'first_name', 'last_name', 'email']
 
     def create(self, validated_data):
         user = User.objects.create_user(
             username=validated_data['username'],
             password=validated_data['password'],
-            role=validated_data['role']
+            role=validated_data['role'],
+            first_name=validated_data.get('first_name', ''),
+            last_name=validated_data.get('last_name', ''),
+            email=validated_data.get('email', ''),
         )
         if user.role == User.Role.CANDIDATE:
             CandidateProfile.objects.create(user=user)
@@ -90,20 +93,24 @@ class ProjectSerializer(serializers.ModelSerializer):
 class CandidateProfileSerializer(serializers.ModelSerializer):
     # Nested read-only: returns full profile in one GET
     work_experiences = WorkExperienceSerializer(many=True, read_only=True)
-    educations       = EducationSerializer(many=True, read_only=True)
-    skills           = SkillSerializer(many=True, read_only=True)
-    licenses         = CertificationSerializer(many=True, read_only=True)
-    projects         = ProjectSerializer(many=True, read_only=True)
+    educations = EducationSerializer(many=True, read_only=True)
+    skills = SkillSerializer(many=True, read_only=True)
+    licenses = CertificationSerializer(many=True, read_only=True)
+    projects = ProjectSerializer(many=True, read_only=True)
     full_name = serializers.SerializerMethodField()
+    email = serializers.SerializerMethodField()
 
     def get_full_name(self, obj):
         return f"{obj.user.first_name} {obj.user.last_name}".strip()
+    
+    def get_email(self, obj):
+        return obj.user.email
     
     class Meta:
         model  = CandidateProfile
         fields = [
             'id', 'user', 'phone', 'location', 'bio', 'cv', 'score',
-            'full_name', 'work_experiences', 'educations',
+            'full_name', 'email' ,'work_experiences', 'educations',
             'skills', 'licenses', 'projects',
         ]
         read_only_fields = ['user', 'score']
