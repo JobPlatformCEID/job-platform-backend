@@ -4,7 +4,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import NotFound, PermissionDenied
 from django.contrib.auth import authenticate
-from .serializers import RegisterSerializer, LoginSerializer, CandidateProfileSerializer, EmployerProfileSerializer
+from .serializers import RegisterSerializer, LoginSerializer, CandidateProfileSerializer, EmployerProfileSerializer, EmployerListSerializer
 from .models import User, CandidateProfile, EmployerProfile
 
 # Register View: CreateAPIView provides a post method handler
@@ -62,3 +62,8 @@ class EmployerProfileView(generics.RetrieveUpdateAPIView):
         if request.user.role != User.Role.EMPLOYER:
             raise PermissionDenied('You are not an employer.')
         return super().update(request, *args, **kwargs)
+
+class EmployerListView(generics.ListAPIView):
+    serializer_class = EmployerListSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = EmployerProfile.objects.all()
