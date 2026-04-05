@@ -12,7 +12,8 @@ from .serializers import (
     CandidateProfileSerializer, EmployerProfileSerializer,
     WorkExperienceSerializer, EducationSerializer,
     SkillSerializer, CertificationSerializer,
-    ProjectSerializer, UserNameSerializer, AvatarSerializer
+    ProjectSerializer, UserNameSerializer, AvatarUploadSerializer,
+    AvatarReadSerializer,
 )
 
 
@@ -210,9 +211,17 @@ class ProjectDetailView(CandidateSubModelMixin, generics.RetrieveUpdateDestroyAP
         return Project.objects.filter(candidate=self.get_candidate())
     
 class AvatarUpdateView(generics.UpdateAPIView):
-    serializer_class   = AvatarSerializer
     permission_classes = [IsAuthenticated]
     http_method_names  = ['patch']
 
+    def get_serializer_class(self):
+        return AvatarUploadSerializer
+
     def get_object(self):
         return self.request.user
+
+    def patch(self, request, *args, **kwargs):
+        response = super().patch(request, *args, **kwargs)
+        # return the URL after upload
+        read = AvatarReadSerializer(request.user)
+        return Response(read.data)

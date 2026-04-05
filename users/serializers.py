@@ -90,10 +90,23 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 # Profile serializers
 
-class AvatarSerializer(serializers.ModelSerializer):
+class AvatarUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model  = User
         fields = ['avatar']
+
+
+class AvatarReadSerializer(serializers.ModelSerializer):
+    avatar_url = serializers.SerializerMethodField()
+
+    def get_avatar_url(self, obj):
+        if obj.avatar:
+            return obj.avatar.url
+        return None
+
+    class Meta:
+        model  = User
+        fields = ['avatar_url']
 
 class CandidateProfileSerializer(serializers.ModelSerializer):
     # Nested read-only: returns full profile in one GET
