@@ -12,7 +12,7 @@ from .serializers import (
     CandidateProfileSerializer, EmployerProfileSerializer,
     WorkExperienceSerializer, EducationSerializer,
     SkillSerializer, CertificationSerializer,
-    ProjectSerializer, UserNameSerializer,
+    ProjectSerializer, UserNameSerializer, AvatarSerializer
 )
 
 
@@ -208,3 +208,11 @@ class ProjectDetailView(CandidateSubModelMixin, generics.RetrieveUpdateDestroyAP
 
     def get_queryset(self):
         return Project.objects.filter(candidate=self.get_candidate())
+    
+class AvatarUpdateView(generics.UpdateAPIView):
+    serializer_class   = AvatarSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names  = ['patch']
+
+    def get_object(self):
+        return self.request.user

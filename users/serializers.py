@@ -90,6 +90,11 @@ class ProjectSerializer(serializers.ModelSerializer):
 
 # Profile serializers
 
+class AvatarSerializer(serializers.ModelSerializer):
+    class Meta:
+        model  = User
+        fields = ['avatar']
+
 class CandidateProfileSerializer(serializers.ModelSerializer):
     # Nested read-only: returns full profile in one GET
     work_experiences = WorkExperienceSerializer(many=True, read_only=True)

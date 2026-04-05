@@ -7,7 +7,7 @@ from .views import (
     EducationListCreateView, EducationDetailView,
     SkillListCreateView, SkillDetailView,
     CertificationListCreateView, CertificationDetailView,
-    ProjectListCreateView, ProjectDetailView,
+    ProjectListCreateView, ProjectDetailView, AvatarUpdateView
 )
 
 urlpatterns = [
@@ -20,6 +20,7 @@ urlpatterns = [
     # Profiles (matched to what tests expect)
     path('candidates/me/', CandidateProfileView.as_view(), name='candidate-profile'),
     path('employers/me/',  EmployerProfileView.as_view(),  name='employer-profile'),
+    path('me/avatar/', AvatarUpdateView.as_view() , name='user-avatar'),
 
     # Work Experience
     path('work-experience/',          WorkExperienceListCreateView.as_view(), name='work-experience-list'),
