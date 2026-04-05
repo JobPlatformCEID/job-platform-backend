@@ -23,7 +23,7 @@ class LoginView(generics.GenericAPIView):
         user = authenticate(username=username, password=password)
         if user:
             token, _ = Token.objects.get_or_create(user=user)
-            return Response({'token': token.key, 'role': user.role})
+            return Response({'token': token.key, 'role': user.role, 'id': user.id})
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 # Profile Views: RetrieveUpdateAPIView provides get, put, patch method handlers
