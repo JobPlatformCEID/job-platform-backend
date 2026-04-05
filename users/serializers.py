@@ -101,9 +101,11 @@ class AvatarReadSerializer(serializers.ModelSerializer):
 
     def get_avatar_url(self, obj):
         if obj.avatar:
-            return obj.avatar.url
+            request = self.context.get('request')
+            if request:
+                return request.build_absolute_uri(obj.avatar.url)
+            return obj.avatar.url  # fallback if MinIO already returns full URL
         return None
-
     class Meta:
         model  = User
         fields = ['avatar_url']

@@ -212,7 +212,7 @@ class ProjectDetailView(CandidateSubModelMixin, generics.RetrieveUpdateDestroyAP
     
 class AvatarUpdateView(generics.UpdateAPIView):
     permission_classes = [IsAuthenticated]
-    http_method_names  = ['patch']
+    http_method_names  = ['get', 'patch']
 
     def get_serializer_class(self):
         return AvatarUploadSerializer
@@ -220,8 +220,11 @@ class AvatarUpdateView(generics.UpdateAPIView):
     def get_object(self):
         return self.request.user
 
+    def get(self, request, *args, **kwargs):
+        read = AvatarReadSerializer(request.user, context={'request': request})
+        return Response(read.data)
+
     def patch(self, request, *args, **kwargs):
-        response = super().patch(request, *args, **kwargs)
-        # return the URL after upload
-        read = AvatarReadSerializer(request.user)
+        super().patch(request, *args, **kwargs)
+        read = AvatarReadSerializer(request.user, context={'request': request})
         return Response(read.data)
