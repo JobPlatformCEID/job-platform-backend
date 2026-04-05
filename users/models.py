@@ -8,12 +8,14 @@ class User(AbstractUser):
         EMPLOYER = 'employer', 'Employer'
 
     role = models.CharField(max_length=20, choices=Role.choices)
+    avatar = models.ImageField(upload_to='avatars/',blank=True,null=True)
 
     groups = models.ManyToManyField(
         'auth.Group',
         blank=True,
         related_name='custom_user_set'
     )
+
     user_permissions = models.ManyToManyField(
         'auth.Permission',
         blank=True,
