@@ -58,16 +58,16 @@ class JobApplicationListView(generics.ListAPIView):
     serializer_class = JobApplicationSerializer
     permission_classes = [IsAuthenticated]
 
-    def get(self, request, *args, **kwargs):
-        if request.user.role != User.Role.EMPLOYER:
-            raise PermissionDenied('Only employers can view applications.')
-        return super().get(request, *args, **kwargs)
-
     def get_queryset(self):
         try:
-            return JobApplication.objects.filter(job__employer=self.request.user.employer_profile)
+            if self.request.user.role == User.Role.EMPLOYER:
+                # Employer sees all applications for their job postings
+                return JobApplication.objects.filter(job__employer=self.request.user.employer_profile)
+            else:
+                # Candidate sees only their own applications
+                return JobApplication.objects.filter(candidate=self.request.user.candidate_profile)
         except Exception:
-            raise NotFound('Employer profile not found.')
+            raise NotFound('Profile not found.')
 
 class JobApplyView(generics.CreateAPIView):
     serializer_class = JobApplicationSerializer

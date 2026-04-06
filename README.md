@@ -69,7 +69,7 @@ docker compose exec django python manage.py createsuperuser
 | PUT | `/api/jobs/<id>/` | Update a job posting (employer only) | Token |
 | DELETE | `/api/jobs/<id>/` | Delete a job posting (employer only) | Token |
 | POST | `/api/jobs/<id>/apply/` | Apply for a job (candidate only) | Token |
-| GET | `/api/jobs/applications/` | List applications (employer only) | Token |
+| GET | `/api/jobs/applications/` | List applications (employer: all for their postings, candidate: own applications) | Token |
 | PATCH | `/api/jobs/applications/<id>/status/` | Accept/reject an application (employer only) | Token
 
 ### Reviews
