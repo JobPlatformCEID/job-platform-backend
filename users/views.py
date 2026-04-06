@@ -40,6 +40,13 @@ class UserDetailView(generics.RetrieveAPIView):
     def get(self, request, *args, **kwargs):
         try:
             user = User.objects.get(id=self.kwargs['pk'])
+            try:
+                if user.role == User.Role.CANDIDATE:
+                    profile_id = user.candidate_profile.id
+                else:
+                    profile_id = user.employer_profile.id
+            except:
+                profile_id = None
             return Response({
                 'id': user.id,
                 'username': user.username,
@@ -47,6 +54,7 @@ class UserDetailView(generics.RetrieveAPIView):
                 'last_name': user.last_name,
                 'email': user.email,
                 'role': user.role,
+                'profile_id': profile_id,
             })
         except User.DoesNotExist:
             raise NotFound('User not found.')
