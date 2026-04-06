@@ -50,15 +50,16 @@ docker compose exec django python manage.py createsuperuser
 ### Candidates
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/candidates/me/` | Get candidate profile | Token |
-| PUT | `/api/candidates/me/` | Update candidate profile | Token |
+| GET | `/api/candidates/me/` | Get current user's candidate profile | Token |
+| PUT | `/api/candidates/me/` | Update current user's candidate profile | Token |
 
 ### Employers
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | GET | `/api/employers/` | List all employer profiles | Token |
-| GET | `/api/employers/me/` | Get employer profile | Token |
-| PUT | `/api/employers/me/` | Update employer profile | Token |
+| GET | `/api/employers/<id>` | Get employer profile | Token |
+| GET | `/api/employers/me/` | Get current user's employer profile | Token |
+| PUT | `/api/employers/me/` | Update current user's  employer profile | Token |
 
 ### Jobs
 | Method | Endpoint | Description | Auth |

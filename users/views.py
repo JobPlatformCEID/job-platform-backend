@@ -70,6 +70,18 @@ class EmployerProfileView(generics.RetrieveUpdateAPIView):
             raise PermissionDenied('You are not an employer.')
         return super().update(request, *args, **kwargs)
 
+# View for showing the profile of an employer (via ID)
+class EmployerProfileDetailView(generics.RetrieveAPIView):
+    serializer_class = EmployerProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        try:
+            return EmployerProfile.objects.get(id=self.kwargs['pk'])
+        except EmployerProfile.DoesNotExist:
+            raise NotFound('Employer not found.')
+
+# View for showing all employers in the database
 class EmployerListView(generics.ListAPIView):
     serializer_class = EmployerListSerializer
     permission_classes = [IsAuthenticated]
