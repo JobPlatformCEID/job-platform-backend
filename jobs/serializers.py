@@ -8,10 +8,17 @@ class JobPostingSerializer(serializers.ModelSerializer):
         read_only_fields = ['employer', 'created_at']
 
 class JobApplicationSerializer(serializers.ModelSerializer):
+    candidate_username = serializers.CharField(source='candidate.user.username', read_only=True)
+    candidate_full_name = serializers.SerializerMethodField()
+
     class Meta:
         model = JobApplication
         fields = '__all__'
         read_only_fields = ['candidate', 'created_at', 'status', 'job']
+
+    def get_candidate_full_name(self, obj):
+        name = f'{obj.candidate.user.first_name} {obj.candidate.user.last_name}'.strip()
+        return name if name else obj.candidate.user.username
 
 class JobApplicationStatusSerializer(serializers.ModelSerializer):
     class Meta:
