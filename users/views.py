@@ -33,6 +33,25 @@ class LoginView(generics.GenericAPIView):
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+# User view for showing a user's public info
+class UserDetailView(generics.RetrieveAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        try:
+            user = User.objects.get(id=self.kwargs['pk'])
+            return Response({
+                'id': user.id,
+                'username': user.username,
+                'first_name': user.first_name,
+                'last_name': user.last_name,
+                'email': user.email,
+                'role': user.role,
+            })
+        except User.DoesNotExist:
+            raise NotFound('User not found.')
+
+
 # Profile Views: RetrieveUpdateAPIView provides get, put, patch method handlers
 # so these can be used for reading profiles and updating them
 # Note: We might want to change how get_object and update check for roles later.
@@ -52,6 +71,17 @@ class CandidateProfileView(generics.RetrieveUpdateAPIView):
         if request.user.role != User.Role.CANDIDATE:
             raise PermissionDenied('You are not a candidate.')
         return super().update(request, *args, **kwargs)
+
+# View for showing the profile of a candidate (via ID)
+class CandidateProfileDetailView(generics.RetrieveAPIView):
+    serializer_class = CandidateProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        try:
+            return CandidateProfile.objects.get(id=self.kwargs['pk'])
+        except CandidateProfile.DoesNotExist:
+            raise NotFound('Candidate not found.')
 
 class EmployerProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = EmployerProfileSerializer

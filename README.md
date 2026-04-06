@@ -47,9 +47,14 @@ docker compose exec django python manage.py createsuperuser
 | POST | `/api/auth/register/` | Register a new user | No |
 | POST | `/api/auth/login/` | Login and get token | No |
 
+### Users
+| Method | Endpoint | Description | Auth |
+| GET | `/api/users/<id>/` | Get public user info | Token |
+
 ### Candidates
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
+| GET | `/api/candidates/<id>/` | Get candidate profile | Token |
 | GET | `/api/candidates/me/` | Get current user's candidate profile | Token |
 | PUT | `/api/candidates/me/` | Update current user's candidate profile | Token |
 
