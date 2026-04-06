@@ -13,6 +13,7 @@ class PostSerializer(serializers.ModelSerializer):
     likes_count = serializers.IntegerField(source='likes.count', read_only=True)
     comments_count = serializers.IntegerField(source='comments.count', read_only=True)
     images = PostImageSerializer(many=True, read_only=True)
+    is_liked_by_me = serializers.SerializerMethodField()
 
     class Meta:
         model = Post
@@ -22,6 +23,12 @@ class PostSerializer(serializers.ModelSerializer):
     def get_full_name(self, obj):
         name = f'{obj.user.first_name} {obj.user.last_name}'.strip()
         return name if name else obj.user.username
+
+    def get_is_liked_by_me(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.likes.filter(user=request.user).exists()
+        return False 
 
 class CommentSerializer(serializers.ModelSerializer):
     username = serializers.CharField(source='user.username', read_only=True)
