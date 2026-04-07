@@ -4,6 +4,7 @@ from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import NotFound, PermissionDenied
 from django.contrib.auth import authenticate
+from core.utils import compress_image
 from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, CandidateProfileSerializer, EmployerProfileSerializer, EmployerListSerializer
 from .models import User, CandidateProfile, EmployerProfile
 
@@ -50,8 +51,20 @@ class UserMeView(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         # Delete old avatar if replacing
         if 'avatar' in request.FILES:
-            if self.request.user.avatar:
-                self.request.user.avatar.delete(save=False)
+            avatar_file = request.FILES['avatar']
+            if request.user.avatar:
+                request.user.avatar.delete(save=False)
+            compressed = compress_image(avatar_file, max_size=(512, 512))
+            if compressed:
+                # pass compressed directly to serializer since request.FILES is immutable in django
+                serializer = self.get_serializer(
+                    request.user,
+                    data={**request.data, 'avatar': compressed},
+                    partial=kwargs.pop('partial', False)
+                )
+                serializer.is_valid(raise_exception=True)
+                serializer.save()
+                return Response(serializer.data)
         return super().update(request, *args, **kwargs)
 
 # User view for showing a user's public info
