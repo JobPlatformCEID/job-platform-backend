@@ -34,3 +34,14 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_read_statuses(self, obj):
         statuses = ConversationReadStatus.objects.filter(conversation=obj)
         return {str(status.user_id): status.last_read_message_id for status in statuses}
+
+    def get_other_user(self, obj):
+        request = self.context.get('request')
+        other = obj.participants.exclude(id=request.user.id).first()
+        if other:
+            return {
+                'id': other.id,
+                'username': other.username,
+                'avatar': request.build_absolute_uri(other.avatar.url) if other.avatar else None,  # ADD
+            }
+        return None
