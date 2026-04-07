@@ -25,6 +25,13 @@ class RegisterSerializer(serializers.ModelSerializer):
             EmployerProfile.objects.create(user=user)
         return user
 
+# User serializer
+class UserSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name', 'email', 'role', 'avatar']
+        read_only_fields = ['id', 'username', 'role']
+
 # Login serializer: Simple serializer for username and password
 class LoginSerializer(serializers.Serializer):
     username = serializers.CharField()

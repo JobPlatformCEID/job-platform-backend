@@ -1,10 +1,10 @@
-from rest_framework import status, generics
+from rest_framework import status, generics, parsers
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import NotFound, PermissionDenied
 from django.contrib.auth import authenticate
-from .serializers import RegisterSerializer, LoginSerializer, CandidateProfileSerializer, EmployerProfileSerializer, EmployerListSerializer
+from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, CandidateProfileSerializer, EmployerProfileSerializer, EmployerListSerializer
 from .models import User, CandidateProfile, EmployerProfile
 
 # Register View: CreateAPIView provides a post method handler
@@ -27,11 +27,24 @@ class LoginView(generics.GenericAPIView):
                 'token': token.key,
                 'role': user.role,
                 'id': user.id,
-                'first_name': user.first_name,
-                'last_name': user.last_name,
-                'email': user.email,
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
+
+# Current user view for showing and updating user info
+class UserMeView(generics.RetrieveUpdateAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
+
+    def get_object(self):
+        return self.request.user
+
+    def update(self, request, *args, **kwargs):
+        # Delete old avatar if replacing
+        if 'avatar' in request.FILES:
+            if self.request.user.avatar:
+                self.request.user.avatar.delete(save=False)
+        return super().update(request, *args, **kwargs)
 
 # User view for showing a user's public info
 class UserDetailView(generics.RetrieveAPIView):
@@ -55,6 +68,7 @@ class UserDetailView(generics.RetrieveAPIView):
                 'email': user.email,
                 'role': user.role,
                 'profile_id': profile_id,
+                'avatar': request.build_absolute_uri(user.avatar.url) if user.avatar else None,
             })
         except User.DoesNotExist:
             raise NotFound('User not found.')

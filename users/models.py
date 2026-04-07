@@ -1,6 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser
 
+def avatar_upload_path(instance, filename):
+    return f'avatars/{instance.id}/{filename}'
+
 # Custom User model: Needed because the default one doesn't have Role
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -8,6 +11,7 @@ class User(AbstractUser):
         EMPLOYER = 'employer', 'Employer'
 
     role = models.CharField(max_length=20, choices=Role.choices)
+    avatar = models.ImageField(upload_to=avatar_upload_path, blank=True, null=True)
 
     groups = models.ManyToManyField(
         'auth.Group',
