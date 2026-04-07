@@ -24,6 +24,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
         )
         await self.accept()
 
+        # Update all read statuses on connect
         last_read_id = await self.update_read_status()
         await self.channel_layer.group_send(
             self.room_group_name,
@@ -44,6 +45,25 @@ class ChatConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         content = data.get('content', '').strip()
+        msg_type = data.get('type')
+
+        # Check if it's a read acknowledgment from the client
+        if msg_type == 'read':
+            message_id = data.get('message_id')
+            if message_id:
+                # Client sent a read receipt: Update last read id in the server
+                last_read_id = await self.update_read_status_for_message(message_id)
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'messages_read',
+                        'reader_id': self.user.id,
+                        'reader_username': self.user.username,
+                        'last_read_message_id': last_read_id,
+                    }
+                )
+            return
+
         if not content:
             return
         message = await self.save_message(content)
@@ -112,3 +132,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
             defaults={'last_read_message_id': last_read_id}
         )
         return last_read_id
+
+    @database_sync_to_async
+    def update_read_status_for_message(self, message_id):
+        ConversationReadStatus.objects.update_or_create(
+            conversation_id=self.conversation_id,
+            user=self.user,
+            defaults={'last_read_message_id': message_id}
+        )
+        return message_id
