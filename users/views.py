@@ -30,6 +30,14 @@ class LoginView(generics.GenericAPIView):
             })
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
+# Logout view
+class LogoutView(generics.GenericAPIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        request.user.auth_token.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
 # Current user view for showing and updating user info
 class UserMeView(generics.RetrieveUpdateAPIView):
     serializer_class = UserSerializer

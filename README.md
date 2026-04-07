@@ -46,6 +46,7 @@ docker compose exec django python manage.py createsuperuser
 |--------|----------|-------------|------|
 | POST | `/api/auth/register/` | Register a new user | No |
 | POST | `/api/auth/login/` | Login and get token | No |
+| POST | `/api/auth/logout/` | Invalidate session token | Token |
 
 ### Users
 | Method | Endpoint | Description | Auth |
