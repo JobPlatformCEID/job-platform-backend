@@ -1,12 +1,16 @@
 from rest_framework import generics, status
+from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.response import Response
+from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from .models import Room
 from .serializers import RoomCreateSerializer, RoomDetailSerializer
 from users.models import User
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
+from .livekit_utils import generate_token, LIVEKIT_PUBLIC_URL
 
 class RoomListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -51,3 +55,13 @@ class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):
         if room.host != request.user:
             raise PermissionDenied('Only the host can delete this room.')
         return super().destroy(request, *args, **kwargs)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def join_call(request, room_id):
+    room = get_object_or_404(Room, id=room_id)
+    token = generate_token(room.room_name, request.user.username, is_host=False)
+    return JsonResponse({
+        'livekit_url': LIVEKIT_PUBLIC_URL,
+        'livekit_token': token
+    })

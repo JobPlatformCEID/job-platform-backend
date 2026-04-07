@@ -10,6 +10,7 @@ from django.utils import timezone
 from rest_framework.authtoken.models import Token
 
 from .models import Room
+from .livekit_utils import generate_token, LIVEKIT_PUBLIC_URL
 
 
 def _room_key(room_id):
@@ -104,25 +105,29 @@ class RoomConsumer(AsyncWebsocketConsumer):
             self.room_group_name = f"calls_{self.room_id}"
 
             if timezone.now() < self.room.meeting_date:
-                await self.close(code=4003)
+                await self.close(code=4003, reason=f"Meeting has not started yet. Scheduled for: {self.room.meeting_date}")
                 return
 
-            if not self.room.is_active and self.user.id != self.room.host_id:
-                await self.close(code=4004)
-                return
-
-            if not self.room.is_active and self.user.id == self.room.host_id:
+            # Room is active if meeting time has arrived
+            if not self.room.is_active:
                 await self.set_room_active(True)
                 self.room.is_active = True
 
             await self.channel_layer.group_add(self.room_group_name, self.channel_name)
+            await self.channel_layer.group_add(f"user_{self.username}", self.channel_name)
             await self._store.add_user(self.room_id, self.user.id, self.username)
             self._joined = True
 
             users = await self._store.get_users(self.room_id)
             await self.channel_layer.group_send(
                 self.room_group_name,
-                {'type': 'user_joined', 'username': self.username, 'users': users},
+                {
+                    'type': 'user_joined',
+                    'username': self.username,
+                    'users': users,
+                    'waiting_users': users,
+                    'call_started': True,
+                },
             )
 
         except Exception as e:
@@ -138,13 +143,19 @@ class RoomConsumer(AsyncWebsocketConsumer):
 
         await self.channel_layer.group_send(
             self.room_group_name,
-            {'type': 'user_left', 'username': self.username, 'users': users},
+            {
+                'type': 'user_left',
+                'username': self.username,
+                'users': users,
+                'waiting_users': users,
+                'call_started': True,
+            },
         )
 
-        if self.user.id == self.room.host_id:
-            await self.set_room_active(False)
+        # Room stays active based on meeting time, not host presence
 
         await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        await self.channel_layer.group_discard(f"user_{self.username}", self.channel_name)
 
     async def receive(self, text_data):
         data = json.loads(text_data)
@@ -203,6 +214,12 @@ class VideoCalls(RoomConsumer):
         if action == 'kick':
             await self.kick(data.get('user_id'))
 
+        elif action == 'kick_user':
+            await self.kick_user(data['username'], self.scope['user'].username)
+
+        elif action == 'admit_guest':
+            await self.admit_user(data.get('username'))
+
         elif action == 'offer':
             await self.channel_layer.group_send(
                 self.room_group_name,
@@ -259,6 +276,54 @@ class VideoCalls(RoomConsumer):
                 'candidate': event['candidate'],
                 'sender':    event['sender'],
             }))
+
+    async def admit_user(self, username):
+        if self.user.id != self.room.host_id:
+            logging.warning(f"Non-host {self.username} tried to admit {username}")
+            return
+        
+        token = generate_token(self.room.room_name, username, is_host=False)
+        
+        # Send to the admitted user's channel
+        await self.channel_layer.group_send(
+            f"user_{username}",
+            {
+                "type": "admitted",
+                "livekit_url": LIVEKIT_PUBLIC_URL,
+                "livekit_token": token,
+                "host_username": self.username,
+            }
+        )
+        
+        logging.info(f"Host {self.username} admitted {username} to room {self.room_id}")
+
+    async def kick_user(self, username, initiator):
+        if self.user.id != self.room.host_id:
+            logging.warning(f"Non-host {initiator} tried to kick {username}")
+            return
+        
+        # Send kick message to the user
+        await self.channel_layer.group_send(
+            f"user_{username}",
+            {
+                "type": "kicked",
+            }
+        )
+        
+        logging.info(f"Host {initiator} kicked {username} from room {self.room_id}")
+
+    async def admitted(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'admitted',
+            'livekit_url': event.get('livekit_url'),
+            'livekit_token': event.get('livekit_token'),
+            'host_username': event.get('host_username'),
+        }))
+
+    async def kicked(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'kicked',
+        }))
 
 
 class Messaging(RoomConsumer):

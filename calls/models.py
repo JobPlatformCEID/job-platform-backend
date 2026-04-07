@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from users.models import User
 
 # a room can only be created by an employer 
@@ -10,3 +11,7 @@ class Room(models.Model):
     meeting_date = models.DateTimeField()
     description = models.TextField()
     is_active = models.BooleanField(default=False)
+
+    def is_time_to_start(self):
+        """Check if the meeting time has arrived"""
+        return timezone.now() >= self.meeting_date
