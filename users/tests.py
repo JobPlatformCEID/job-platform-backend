@@ -250,3 +250,25 @@ class UserTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['first_name'], 'John')
+
+    def test_logout_invalidates_token(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.post('/api/auth/logout/')
+        self.assertEqual(response.status_code, 204)
+
+        # Token should no longer work
+        response = self.client.get('/api/candidates/me/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_logout_requires_authentication(self):
+        self.client.credentials()
+        response = self.client.post('/api/auth/logout/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_cannot_use_token_after_logout(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        self.client.post('/api/auth/logout/')
+
+        # Try to access a protected endpoint
+        response = self.client.get('/api/employers/me/')
+        self.assertEqual(response.status_code, 401)
