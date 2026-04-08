@@ -83,3 +83,31 @@ def join_call(request, room_id):
         'livekit_url': LIVEKIT_PUBLIC_URL,
         'livekit_token': token
     })
+
+import logging
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
+logger = logging.getLogger(__name__)
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def start_call(request, room_id):
+    room = get_object_or_404(Room, id=room_id)
+    
+    if room.host != request.user:
+        raise PermissionDenied('Only the host can start the call.')
+
+    store = _get_user_store()
+    async_to_sync(store.add_admitted_user)(room_id, request.user.id)
+    
+    check = async_to_sync(store.is_user_admitted)(room_id, request.user.id)
+    logger.info(f"start_call: host {request.user.id} admitted, check={check}")
+
+    channel_layer = get_channel_layer()
+    async_to_sync(channel_layer.group_send)(
+        f"calls_{room_id}",
+        {'type': 'call_started'}
+    )
+
+    return Response({'status': 'ok'})

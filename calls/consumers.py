@@ -310,9 +310,10 @@ class RoomConsumer(AsyncWebsocketConsumer):
             # Tell this specific user the current state of the room immediately
             # on connect, so they know whether the host has already started.
             host_present = await self._store.is_user_admitted(self.room_id, self.room.host_id)
+            # NOTE: host_present is 0 or 1 (integer) from Redis sismember()
             await self.send(text_data=json.dumps({
                 'type': 'room_state',
-                'host_present': host_present,
+                'host_present': bool(host_present),
                 'waiting_users': [u['username'] for u in waiting_users],
                 'users': [u['username'] for u in users],
             }))
