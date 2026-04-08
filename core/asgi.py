@@ -28,3 +28,7 @@ application = ProtocolTypeRouter({
         )
     ),
 })
+
+# shutdown
+import atexit , asyncio , calls.consumers
+atexit.register(lambda: asyncio.run(close_redis_pool()))

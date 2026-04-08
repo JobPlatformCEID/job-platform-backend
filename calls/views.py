@@ -11,6 +11,7 @@ from users.models import User
 from django.utils import timezone
 from rest_framework.exceptions import ValidationError
 from .livekit_utils import generate_token, LIVEKIT_PUBLIC_URL
+from .consumers import _get_user_store, get_redis, _admitted_key, _room_key
 
 class RoomListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
@@ -58,9 +59,26 @@ class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
+def admitted_users(request, room_id):
+    """Returns list of admitted user IDs for a room."""
+    room = get_object_or_404(Room, id=room_id)
+    
+    try:
+        r = get_redis()
+        admitted_ids = r.smembers(_admitted_key(room_id))
+        return JsonResponse({'admitted_user_ids': [int(uid) for uid in admitted_ids]})
+    except Exception:
+        # Fallback to in-memory store if Redis unavailable
+        store = _get_user_store()
+        admitted = store._admitted.get(str(room_id), set())
+        return JsonResponse({'admitted_user_ids': [int(uid) for uid in admitted]})
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
 def join_call(request, room_id):
     room = get_object_or_404(Room, id=room_id)
-    token = generate_token(room.room_name, request.user.username, is_host=False)
+    is_host = (room.host == request.user)
+    token = generate_token(room.room_name, request.user.username, is_host=is_host)
     return JsonResponse({
         'livekit_url': LIVEKIT_PUBLIC_URL,
         'livekit_token': token
