@@ -7,6 +7,7 @@
 - Django 6.0, DRF
 - PostgreSQL
 - MinIO
+- LiveKit
 
 ## Running with Docker (recommended)
 
