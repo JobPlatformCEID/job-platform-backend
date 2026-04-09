@@ -20,7 +20,7 @@ class InterviewSession(models.Model):
 class Message(models.Model):
     class Role(models.TextChoices):
         USER = 'user', 'User'
-        ASSISTANT = 'assistant', 'Assistant'
+        Assistant = 'assistant', 'Assistant'
 
     session = models.ForeignKey(InterviewSession, on_delete=models.CASCADE, related_name='messages')
     role = models.CharField(max_length=10, choices=Role.choices)
