@@ -191,6 +191,10 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+# LiveKit integration
+LIVEKIT_URL = config('LIVEKIT_URL')
+LIVEKIT_API_KEY = config('LIVEKIT_API_KEY')
+LIVEKIT_API_SECRET = config('LIVEKIT_API_SECRET')
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/

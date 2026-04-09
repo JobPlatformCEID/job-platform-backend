@@ -9,4 +9,7 @@ class Room(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     meeting_date = models.DateTimeField()
     description = models.TextField()
-    is_active = models.BooleanField(default=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.room_name
