@@ -1,113 +1,81 @@
-from rest_framework import generics, status
+"""API endpoints for video call rooms.
+
+Rooms live in our DB. LiveKit auto-creates them when someone joins with a token.
+"""
+
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
-from rest_framework.exceptions import PermissionDenied, NotFound
 from rest_framework.response import Response
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
+from rest_framework import status
+
 from .models import Room
-from .serializers import RoomCreateSerializer, RoomDetailSerializer
-from users.models import User
-from django.utils import timezone
-from rest_framework.exceptions import ValidationError
 from .livekit_utils import generate_token, LIVEKIT_PUBLIC_URL
-from .consumers import _get_user_store, get_redis, _admitted_key, _room_key
 
-class RoomListCreateView(generics.ListCreateAPIView):
-    permission_classes = [IsAuthenticated]
 
-    def get_serializer_class(self):
-        if self.request.method == 'POST':
-            return RoomCreateSerializer
-        return RoomDetailSerializer
-
-    def get_queryset(self):
-        return Room.objects.all()
-
-    def perform_create(self, serializer):
-        if self.request.user.role != User.Role.EMPLOYER:
-            raise PermissionDenied('Only employers can create rooms.')
-        
-        meeting_date = serializer.validated_data.get('meeting_date')
-        if meeting_date and meeting_date < timezone.now():
-            raise ValidationError('Meeting cannot be in the past.')
-    
-        serializer.save(host=self.request.user)
-
-class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsAuthenticated]
-    serializer_class = RoomDetailSerializer
-    queryset = Room.objects.all()
-
-    def get_object(self):
-        try:
-            return Room.objects.get(pk=self.kwargs.get('pk'))
-        except Room.DoesNotExist:
-            raise NotFound('Room not found.')
-
-    def update(self, request, *args, **kwargs):
-        room = self.get_object()
-        if room.host != request.user:
-            raise PermissionDenied('Only the host can update this room.')
-        return super().update(request, *args, **kwargs)
-
-    def destroy(self, request, *args, **kwargs):
-        room = self.get_object()
-        if room.host != request.user:
-            raise PermissionDenied('Only the host can delete this room.')
-        return super().destroy(request, *args, **kwargs)
-
-@api_view(['GET'])
+@api_view(["GET", "POST"])
 @permission_classes([IsAuthenticated])
-def admitted_users(request, room_id):
-    """Returns list of admitted user IDs for a room."""
-    room = get_object_or_404(Room, id=room_id)
-    
+def calls_list(request):
+    if request.method == "GET":
+        rooms = Room.objects.all().order_by("-created_at")
+        return Response([r.to_dict() for r in rooms])
+
+    # POST — employers only
+    if request.user.role != "employer":
+        return Response({"detail": "Only employers can create rooms."},
+                        status=status.HTTP_403_FORBIDDEN)
+
+    room_name   = request.data.get("room_name", "").strip()
+    description = request.data.get("description", "").strip()
+    meeting_date = request.data.get("meeting_date", "")
+
+    if not room_name:
+        return Response({"detail": "room_name is required."},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    room = Room.objects.create(
+        room_name=room_name,
+        description=description,
+        meeting_date=meeting_date or None,
+        host=request.user,
+    )
+    return Response(room.to_dict(), status=status.HTTP_201_CREATED)
+
+
+@api_view(["GET", "DELETE"])
+@permission_classes([IsAuthenticated])
+def calls_detail(request, pk):
     try:
-        r = get_redis()
-        admitted_ids = r.smembers(_admitted_key(room_id))
-        return JsonResponse({'admitted_user_ids': [int(uid) for uid in admitted_ids]})
-    except Exception:
-        # Fallback to in-memory store if Redis unavailable
-        store = _get_user_store()
-        admitted = store._admitted.get(str(room_id), set())
-        return JsonResponse({'admitted_user_ids': [int(uid) for uid in admitted]})
+        room = Room.objects.get(pk=pk)
+    except Room.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def join_call(request, room_id):
-    room = get_object_or_404(Room, id=room_id)
-    is_host = (room.host == request.user)
-    token = generate_token(room.room_name, request.user.username, is_host=is_host)
-    return JsonResponse({
-        'livekit_url': LIVEKIT_PUBLIC_URL,
-        'livekit_token': token
-    })
+    if request.method == "GET":
+        return Response(room.to_dict())
 
-import logging
-from channels.layers import get_channel_layer
-from asgiref.sync import async_to_sync
-
-logger = logging.getLogger(__name__)
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def start_call(request, room_id):
-    room = get_object_or_404(Room, id=room_id)
-    
     if room.host != request.user:
-        raise PermissionDenied('Only the host can start the call.')
+        return Response({"detail": "Only the host can delete this room."},
+                        status=status.HTTP_403_FORBIDDEN)
+    room.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
-    store = _get_user_store()
-    async_to_sync(store.add_admitted_user)(room_id, request.user.id)
-    
-    check = async_to_sync(store.is_user_admitted)(room_id, request.user.id)
-    logger.info(f"start_call: host {request.user.id} admitted, check={check}")
 
-    channel_layer = get_channel_layer()
-    async_to_sync(channel_layer.group_send)(
-        f"calls_{room_id}",
-        {'type': 'call_started'}
+@api_view(["GET"])
+@permission_classes([IsAuthenticated])
+def calls_join(request, pk):
+    # Return token so user can join the room
+    try:
+        room = Room.objects.get(pk=pk)
+    except Room.DoesNotExist:
+        return Response({"detail": "Not found."}, status=status.HTTP_404_NOT_FOUND)
+
+    token = generate_token(
+        room_name=str(room.pk),   # use DB id as LiveKit room name — simple & unique
+        identity=request.user.username,
     )
 
-    return Response({'status': 'ok'})
+    return Response({
+        "livekit_url":   LIVEKIT_PUBLIC_URL,
+        "livekit_token": token,
+        "room_name":     room.room_name,
+        "is_host":       room.host == request.user,
+    })

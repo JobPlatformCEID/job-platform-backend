@@ -16,19 +16,14 @@ django_asgi_app = get_asgi_application()
 
 from channels.routing import ProtocolTypeRouter, URLRouter
 import messaging.routing
-import calls.routing
 from messaging.middleware import TokenAuthMiddleware
 
 application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": TokenAuthMiddleware(
         URLRouter(
-            messaging.routing.websocket_urlpatterns +
-            calls.routing.websocket_urlpatterns
+            messaging.routing.websocket_urlpatterns
         )
     ),
 })
 
-# shutdown
-import atexit , asyncio , calls.consumers
-atexit.register(lambda: asyncio.run(close_redis_pool()))

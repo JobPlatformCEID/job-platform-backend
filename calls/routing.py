@@ -1,6 +1,7 @@
-from django.urls import re_path
-from calls.consumers import VideoCalls
+# routing.py
+# WebSocket routing has been removed.
+# All room/participant management is done via the LiveKit Server API.
+# Daphne / Django Channels is still used to serve HTTP, but there are
+# no custom WebSocket consumers left in this app.
 
-websocket_urlpatterns = [
-    re_path(r'ws/calls/(?P<room_id>[\w-]+)/$', VideoCalls.as_asgi()),
-]
+websocket_urlpatterns = []
