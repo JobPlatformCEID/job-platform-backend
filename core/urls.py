@@ -25,4 +25,5 @@ urlpatterns = [
     path('api/', include('social.urls')),
     path('api/', include('messaging.urls')),
     path('api/', include('calls.urls')),
+    path('api/', include('ai_interviews.urls'))
 ]
