@@ -91,7 +91,54 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+  # --- OLLAMA FOR NVIDIA USERS ---
+  ollama-nvidia:
+    image: ollama/ollama:latest
+    container_name: ollama-nvidia
+    profiles: [nvidia]
+    volumes:
+      - ollama_data_nvidia:/root/.ollama
+    ports:
+      - "11434:11434"
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull ${OLLAMA_MODEL:-qwen2.5:3b} && wait"]
+    env_file:
+      - .env
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    networks:
+      - default
+
+  # --- OLLAMA FOR AMD USERS ---
+  ollama-amd:
+    image: ollama/ollama:rocm
+    container_name: ollama-amd
+    profiles: [amd]
+    volumes:
+      - ollama_data_amd:/root/.ollama
+    ports:
+      - "11434:11434"
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull ${OLLAMA_MODEL:-qwen2.5:3b} && wait"]
+    env_file:
+      - .env
+    devices:
+      - "/dev/kfd:/dev/kfd"
+      - "/dev/dri:/dev/dri"
+    group_add:
+      - video
+      - render
+    environment:
+      # Check your GPU architecture — 10.3.0 = RDNA2, 11.0.0 = RDNA3
+      - HSA_OVERRIDE_GFX_VERSION=10.3.0
+    networks:
+      - default
 
 volumes:
+  ollama_data_nvidia:
+  ollama_data_amd:
   postgres_data:
   minio_data:
