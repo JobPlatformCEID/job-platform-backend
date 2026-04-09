@@ -23,6 +23,27 @@ services:
       redis:
         condition: service_healthy
 
+  # --- CELERY FOR GROQ 
+  celery-worker:
+    build: .
+    container_name: celery-worker
+    command: celery -A core worker --loglevel=info --concurrency=4
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_BACKEND=groq
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
   postgres:
     image: postgres:16
     ports:
@@ -32,7 +53,7 @@ services:
       POSTGRES_USER: ${DB_USER:-jobplatform}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-jobplatform}
     volumes:
-      - postgres_data:/var/lib/postgresql/data  # Needed so that our DB in docker doesn't get deleted
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
@@ -49,7 +70,7 @@ services:
       MINIO_ROOT_USER: ${MINIO_USER:-jobplatform}
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-jobplatform}
     volumes:
-      - minio_data:/data      # Needed so that our minio bucket in docker doesn't get deleted
+      - minio_data:/data
     command: server /data --console-address ":9001"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
@@ -92,6 +113,7 @@ services:
       redis:
         condition: service_healthy
   # --- OLLAMA FOR NVIDIA USERS ---
+  # Usage: docker compose --profile nvidia up -d
   ollama-nvidia:
     image: ollama/ollama:latest
     container_name: ollama-nvidia
@@ -99,7 +121,11 @@ services:
     volumes:
       - ollama_data_nvidia:/root/.ollama
     ports:
-      - "11434:11434"
+      - "8080:11434"
+    environment:
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=1
     entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull ${OLLAMA_MODEL:-qwen2.5:3b} && wait"]
     env_file:
       - .env
@@ -113,32 +139,136 @@ services:
     networks:
       - default
 
-  # --- OLLAMA FOR AMD USERS ---
-  ollama-amd:
-    image: ollama/ollama:rocm
-    container_name: ollama-amd
+  # --- LLAMA.CPP FOR AMD USERS ---
+  # Usage: docker compose --profile amd up -d
+  # Place your .gguf model in ./models/ before starting
+  # Check your GPU architecture: 10.3.0 = RDNA2, 11.0.0 = RDNA3
+  llama-cpp-amd:
+    image: ghcr.io/ggml-org/llama.cpp:server-rocm
+    container_name: llama-cpp-amd
     profiles: [amd]
     volumes:
-      - ollama_data_amd:/root/.ollama
+      - ./models:/models
     ports:
-      - "11434:11434"
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull ${OLLAMA_MODEL:-qwen2.5:3b} && wait"]
-    env_file:
-      - .env
+      - "8080:8080"
+    environment:
+      - LLAMA_ARG_MODEL=/models/${LLAMA_MODEL:-model.gguf}
+      - LLAMA_ARG_HOST=0.0.0.0
+      - LLAMA_ARG_PORT=8080
+      - LLAMA_ARG_N_GPU_LAYERS=999
+      - LLAMA_ARG_PARALLEL=4
+      - LLAMA_ARG_CTX_SIZE=4096
+      - HSA_OVERRIDE_GFX_VERSION=10.3.0
     devices:
       - "/dev/kfd:/dev/kfd"
       - "/dev/dri:/dev/dri"
     group_add:
       - video
       - render
+    networks:
+      - default
+
+  # --- LLAMA.CPP CPU ONLY ---
+  # Usage: docker compose --profile cpu up -d
+  llama-cpp-cpu:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    container_name: llama-cpp-cpu
+    profiles: [cpu]
+    volumes:
+      - ./models:/models
+    ports:
+      - "8080:8080"
     environment:
-      # Check your GPU architecture — 10.3.0 = RDNA2, 11.0.0 = RDNA3
-      - HSA_OVERRIDE_GFX_VERSION=10.3.0
+      - LLAMA_ARG_MODEL=/models/${LLAMA_MODEL:-model.gguf}
+      - LLAMA_ARG_HOST=0.0.0.0
+      - LLAMA_ARG_PORT=8080
+      - LLAMA_ARG_PARALLEL=2
+      - LLAMA_ARG_CTX_SIZE=4096
+    networks:
+      - default
+
+  # --- CELERY FOR NVIDIA (ollama) ---
+  celery-worker-nvidia:
+    build: .
+    container_name: celery-worker-nvidia
+    profiles: [nvidia]
+    command: celery -A core worker --loglevel=info --concurrency=4
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_BACKEND=ollama
+      - OLLAMA_HOST=http://ollama-nvidia:11434
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      ollama-nvidia:
+        condition: service_started
+    networks:
+      - default
+
+  # --- CELERY FOR AMD (llama.cpp) ---
+  celery-worker-amd:
+    build: .
+    container_name: celery-worker-amd
+    profiles: [amd]
+    command: celery -A core worker --loglevel=info --concurrency=4
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_BACKEND=llama
+      - LLAMA_HOST=http://llama-cpp-amd:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      llama-cpp-amd:
+        condition: service_started
+    networks:
+      - default
+
+  # --- CELERY FOR CPU (llama.cpp) ---
+  celery-worker-cpu:
+    build: .
+    container_name: celery-worker-cpu
+    profiles: [cpu]
+    command: celery -A core worker --loglevel=info --concurrency=4
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - AI_BACKEND=llama
+      - LLAMA_HOST=http://llama-cpp-cpu:8080
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      llama-cpp-cpu:
+        condition: service_started
     networks:
       - default
 
 volumes:
-  ollama_data_nvidia:
-  ollama_data_amd:
   postgres_data:
   minio_data:
+  ollama_data_nvidia:
