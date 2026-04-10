@@ -9,95 +9,127 @@ import logging
 from celery import shared_task
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from decouple import config
+from django.conf import settings
 import redis
 
-from .models import InterviewSession , Message
-from .services import get_ai_response
+from .models import InterviewSession, Message
+from .services import get_ai_response, summarize_history, SUMMARY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
-# redis client this will essentialy be the ais context window
+# --- REDIS CLIENT ---
 redis_client = redis.Redis(
-    host=config('REDIS_HOST', default='redis'),
-    port=config('REDIS_PORT', default=6379, cast=int),
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
     db=0,
     decode_responses=True
 )
 
 HISTORY_KEY = "interview:session:{}:history"
-# this will later be the max amount of history before we make ai sumarise
-# to save tokkens
-MAX_HISTORY = 20
+SUMMARY_KEY = "interview:session:{}:summary"
 
-#check reddis for history and if we get a cache miss call db
+
+# --- HISTORY MANAGEMENT ---
+# get conversation history from reddis to initialise , fallsback to db if it isnt there
 def get_history(session_id):
     key = HISTORY_KEY.format(session_id)
     cached = redis_client.get(key)
-    
+
     if cached:
-        logger.debug(f'cache hit for session {session_id}')
+        logger.debug(f"Cache hit for session {session_id}")
         return json.loads(cached)
-    
-    logger.debug(f'cache miss for session {session_id} -rebuild from db')
 
+    logger.debug(f"Cache miss for session {session_id} — rebuilding from PostgreSQL")
     messages = Message.objects.filter(
-        session_id = session_id,
-    ).order_by('-created_at')
+        session_id=session_id
+    ).order_by('-created_at')[:SUMMARY_THRESHOLD]
 
-    #now that we have the messages it time to build our history
     history = [
-        {'role':msg.role , 'content': msg.content} for msg in reversed(messages)
+        {"role": msg.role, "content": msg.content}
+        for msg in reversed(messages)
     ]
 
-    # NOTE add max history but not now
-
-    redis_client.set(key , json.dumps(history))
+    redis_client.set(key, json.dumps(history), ex=60*60*24)
     return history
 
-# append new message to history
+# append a message to redis
 def append_to_history(session_id, role, content):
     key = HISTORY_KEY.format(session_id)
     cached = redis_client.get(key)
     history = json.loads(cached) if cached else []
 
     history.append({"role": role, "content": content})
+    redis_client.set(key, json.dumps(history), ex=60*60*24)
 
-    # Keep only last MAX_HISTORY messages (keep this out for now)
-    #if len(history) > MAX_HISTORY:
-        #history = history[-MAX_HISTORY:]
+    return len(history)
 
-    redis_client.set(key, json.dumps(history))
+    
+# Summarize history when it hits SUMMARY_THRESHOLD. Replaces full history in Redis with summary + last 4 messages.
+def compress_history(session, history):
 
-# clear redis cache when session gets invalidated
+    logger.info(f"Compressing history for session {session.id}")
+    summary = summarize_history(session, history)
+
+    # Keep last 4 messages for immediate context
+    recent = history[-4:]
+
+    # Store summary separately
+    redis_client.set(
+        SUMMARY_KEY.format(session.id),
+        summary,
+        ex=60*60*24
+    )
+
+    # Replace history with summary message + recent messages
+    compressed = [
+        {"role": "system", "content": f"ΣΥΝΟΨΗ ΣΥΝΕΝΤΕΥΞΗΣ ΩΣ ΤΩΡΑ:\n{summary}"},
+        *recent
+    ]
+
+    redis_client.set(
+        HISTORY_KEY.format(session.id),
+        json.dumps(compressed),
+        ex=60*60*24
+    )
+
+    return compressed
+
+# Clear Redis cache for a session when deleted.
 def invalidate_history(session_id):
     redis_client.delete(HISTORY_KEY.format(session_id))
+    redis_client.delete(SUMMARY_KEY.format(session_id))
 
-# celery Task
-@shared_task(bind=True , max_retries=3)
-def generate_ai_response(self , session_id , room_group_name):
+
+# --- CELERY TASK ---
+
+@shared_task(bind=True, max_retries=3)
+def generate_ai_response(self, session_id, room_group_name):
     channel_layer = get_channel_layer()
 
-    try :
-
+    try:
         session = InterviewSession.objects.get(id=session_id)
-        
-        #get history from reddis 
+
+        # 1. Get history from Redis
         history = get_history(session_id)
 
-        ai_response = get_ai_response(session, history)
+        # 2. Check if we need to summarize
+        if len(history) >= SUMMARY_THRESHOLD:
+            history = compress_history(session, history)
 
-        #save to db
+        # 3. Call AI
+        ai_content = get_ai_response(session, history)
+
+        # 4. Save AI response to PostgreSQL
         ai_msg = Message.objects.create(
-            session = session,
-            role = Message.Role.Assistant,
-            content = ai_response
+            session=session,
+            role=Message.Role.Assistant,
+            content=ai_content
         )
-        
-        # important save the ai's messages to history too
-        append_to_history(session_id, "assistant", ai_response)
 
-        # push response to websocket
+        # 5. Append AI response to Redis
+        append_to_history(session_id, Message.Role.Assistant, ai_content)
+
+        # 6. Push response to WebSocket
         async_to_sync(channel_layer.group_send)(
             room_group_name,
             {
@@ -110,19 +142,17 @@ def generate_ai_response(self , session_id , room_group_name):
                 }
             }
         )
+
     except InterviewSession.DoesNotExist:
         logger.error(f"Session {session_id} not found")
+
     except Exception as exc:
         logger.error(f"Error generating AI response for session {session_id}: {exc}")
-
-        # Notify frontend something went wrong
         async_to_sync(channel_layer.group_send)(
             room_group_name,
             {
                 "type": "error",
-                "message": "something went wrong please try again."
+                "message": "Κάτι πήγε στραβά, παρακαλώ δοκίμασε ξανά."
             }
         )
         raise self.retry(exc=exc, countdown=5)
-
-
