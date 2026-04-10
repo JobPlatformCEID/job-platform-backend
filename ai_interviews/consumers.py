@@ -15,38 +15,29 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
     #  Connection lifecycle
     async def connect(self):
-
         self.session_id = self.scope["url_route"]["kwargs"]["session_id"]
 
         session = await self.get_session()
 
         if session is None:
             logger.error(f'session {self.session_id} doesnt exist')
-            await self.close(code=4404) # not found
+            await self.close(code=4404)
             return
-        
-        #verify the user
+
         user = self.scope.get('user')
         if not user or user != session.user:
             logger.error(f'session {self.session_id} doesnt belong to {user}')
-            await self.close(code=4403) # session belongs to someone else
+            await self.close(code=4403)
             return
 
         self.room_group_name = f"interview_session_{self.session_id}"
-
-        # Reject the connection if the session doesn't exist
-        session = await self.get_session()
-        if session is None:
-            logger.warning(f"Connection refused: session {self.session_id} not found")
-            await self.close()
-            return
-
         await self.channel_layer.group_add(self.room_group_name, self.channel_name)
         await self.accept()
         logger.info(f"WebSocket connected: session={self.session_id}")
 
     async def disconnect(self, close_code):
-        await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
+        if hasattr(self, 'room_group_name'):
+            await self.channel_layer.group_discard(self.room_group_name, self.channel_name)
         logger.info(f"WebSocket disconnected: session={self.session_id}, code={close_code}")
 
     #  Incoming message
@@ -62,21 +53,16 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.send_error("Message content cannot be empty.")
             return
 
-        # Persist the user message to PostgreSQL
-        user_msg = await self.save_message(role=Message.Role.User, content=content)
+        user_msg = await self.save_message(role=Message.Role.USER, content=content)
 
-        # Append to Redis so Celery picks it up immediately
-        # Await Redis write — event loop stays free, and we confirm before firing Celery
         loop = asyncio.get_running_loop()
         try:
             await loop.run_in_executor(None, append_to_history, self.session_id, "user", content)
         except Exception as e:
             logger.error(f"Redis append failed: {e}")
             await self.send_error("Failed to process message, please try again.")
-            return  # Don't fire Celery with stale history
+            return
 
-        # Echo the user message back to this socket
-        # (so the frontend can render it as server-confirmed)
         await self.send(text_data=json.dumps({
             "type": "user_message",
             "message": {
@@ -87,13 +73,10 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             }
         }))
 
-        # Fire Celery — it reads history from Redis, calls AI,
-        # saves the response, and pushes it back via group_send
         generate_ai_response.delay(self.session_id, self.room_group_name)
 
     #  Handlers for messages pushed from Celery via channel layer
     async def ai_message(self, event):
-        
         await self.send(text_data=json.dumps({
             "type": "ai_message",
             "message": event["message"],
@@ -109,7 +92,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_session(self):
         try:
-            return InterviewSession.objects.get(id=self.session_id)
+            return InterviewSession.objects.select_related('user').get(id=self.session_id)
         except InterviewSession.DoesNotExist:
             return None
 

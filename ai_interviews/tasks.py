@@ -50,6 +50,8 @@ def get_history(session_id):
         {'role':msg.role , 'content': msg.content} for msg in reversed(messages)
     ]
 
+    # NOTE add max history but not now
+
     redis_client.set(key , json.dumps(history))
     return history
 
@@ -91,6 +93,9 @@ def generate_ai_response(self , session_id , room_group_name):
             role = Message.Role.Assistant,
             content = ai_response
         )
+        
+        # important save the ai's messages to history too
+        append_to_history(session_id, "assistant", ai_response)
 
         # push response to websocket
         async_to_sync(channel_layer.group_send)(
