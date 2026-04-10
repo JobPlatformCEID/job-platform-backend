@@ -22,7 +22,9 @@ application = ProtocolTypeRouter({
     "http": get_asgi_application(),
     "websocket": TokenAuthMiddleware(
         URLRouter(
-            messaging.routing.websocket_urlpatterns
+            messaging.routing.websocket_urlpatterns +
+            calls.routing.websocket_urlpatterns+
+            ai_interviews.routing.websocket_urlpaterns
         )
     ),
 })
