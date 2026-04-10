@@ -46,18 +46,28 @@ docker compose exec django python manage.py createsuperuser
 |--------|----------|-------------|------|
 | POST | `/api/auth/register/` | Register a new user | No |
 | POST | `/api/auth/login/` | Login and get token | No |
+| POST | `/api/auth/logout/` | Invalidate session token | Token |
+
+### Users
+| Method | Endpoint | Description | Auth |
+| GET | `/api/users/me/` | Get current user info including avatar | Token |
+| PATCH | `/api/users/me/` | Update avatar, first name, last name, email | Token |
+| GET | `/api/users/<id>/` | Get public user info | Token |
 
 ### Candidates
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/candidates/me/` | Get candidate profile | Token |
-| PUT | `/api/candidates/me/` | Update candidate profile | Token |
+| GET | `/api/candidates/<id>/` | Get candidate profile | Token |
+| GET | `/api/candidates/me/` | Get current user's candidate profile | Token |
+| PUT | `/api/candidates/me/` | Update current user's candidate profile | Token |
 
 ### Employers
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/employers/me/` | Get employer profile | Token |
-| PUT | `/api/employers/me/` | Update employer profile | Token |
+| GET | `/api/employers/` | List all employer profiles | Token |
+| GET | `/api/employers/<id>` | Get employer profile | Token |
+| GET | `/api/employers/me/` | Get current user's employer profile | Token |
+| PUT | `/api/employers/me/` | Update current user's  employer profile | Token |
 
 ### Jobs
 | Method | Endpoint | Description | Auth |
@@ -68,7 +78,7 @@ docker compose exec django python manage.py createsuperuser
 | PUT | `/api/jobs/<id>/` | Update a job posting (employer only) | Token |
 | DELETE | `/api/jobs/<id>/` | Delete a job posting (employer only) | Token |
 | POST | `/api/jobs/<id>/apply/` | Apply for a job (candidate only) | Token |
-| GET | `/api/jobs/applications/` | List applications (employer only) | Token |
+| GET | `/api/jobs/applications/` | List applications (employer: all for their postings, candidate: own applications) | Token |
 | PATCH | `/api/jobs/applications/<id>/status/` | Accept/reject an application (employer only) | Token
 
 ### Reviews

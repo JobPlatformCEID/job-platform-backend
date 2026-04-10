@@ -128,4 +128,34 @@ class JobPostingTests(TestCase):
         # second application - should be blocked
         response = self.client.post(f'/api/jobs/{self.job_id}/apply/')
 
-        self.assertEqual(response.status_code, 400) 
+        self.assertEqual(response.status_code, 400)
+
+    def test_candidate_can_view_own_applications(self):
+        # Apply first
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
+        self.client.post(f'/api/jobs/{self.job_id}/apply/')
+
+        # Then fetch applications
+        response = self.client.get('/api/jobs/applications/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)
+
+    def test_candidate_cannot_see_other_candidates_applications(self):
+        # candidate1 applies
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
+        self.client.post(f'/api/jobs/{self.job_id}/apply/')
+
+        # candidate2 fetches — should see 0
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate2_token.key)
+        response = self.client.get('/api/jobs/applications/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 0)
+
+    def test_employer_still_sees_all_applications(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
+        self.client.post(f'/api/jobs/{self.job_id}/apply/')
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
+        response = self.client.get('/api/jobs/applications/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.data), 1)

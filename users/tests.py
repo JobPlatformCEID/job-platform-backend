@@ -222,3 +222,53 @@ class UserTests(TestCase):
             'bio': 'Hacked'
         })
         self.assertEqual(response.status_code, 403)
+
+    def test_get_current_user(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get('/api/users/me/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('avatar', response.data)
+        self.assertIn('first_name', response.data)
+        self.assertIn('email', response.data)
+
+    def test_get_public_user(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get(f'/api/users/{self.employer.id}/')
+        self.assertEqual(response.status_code, 200)
+        self.assertIn('profile_id', response.data)
+        self.assertIn('avatar', response.data)
+
+    def test_unauthenticated_cannot_get_user(self):
+        response = self.client.get(f'/api/users/{self.candidate.id}/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_user_can_update_avatar(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.patch('/api/users/me/', {
+            'first_name': 'John',
+            'last_name': 'Doe',
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['first_name'], 'John')
+
+    def test_logout_invalidates_token(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.post('/api/auth/logout/')
+        self.assertEqual(response.status_code, 204)
+
+        # Token should no longer work
+        response = self.client.get('/api/candidates/me/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_logout_requires_authentication(self):
+        self.client.credentials()
+        response = self.client.post('/api/auth/logout/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_cannot_use_token_after_logout(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        self.client.post('/api/auth/logout/')
+
+        # Try to access a protected endpoint
+        response = self.client.get('/api/employers/me/')
+        self.assertEqual(response.status_code, 401)

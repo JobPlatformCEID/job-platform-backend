@@ -4,6 +4,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
 from rest_framework.response import Response
 from django.db import IntegrityError
+from core.utils import compress_image
 from .models import Post, Comment, Like, PostImage
 from .serializers import PostSerializer, PostImageSerializer, CommentSerializer, LikeSerializer
 
@@ -53,6 +54,11 @@ class PostImageDetailView(generics.RetrieveUpdateDestroyAPIView):
         if image.post.user != request.user:
             raise PermissionDenied('You can only edit images on your own posts.')
         image.image.delete(save=False)
+        image_file = request.FILES.get('image')
+        if image_file:
+            compressed = compress_image(image_file)
+            if compressed:
+                request.FILES['image'] = compressed
         return super().update(request, *args, **kwargs)
 
     def destroy(self, request, *args, **kwargs):
@@ -82,6 +88,11 @@ class PostImageListCreateView(generics.ListCreateAPIView):
 
     def perform_create(self, serializer):
         post = Post.objects.get(pk=self.kwargs.get('pk'))
+        image_file = self.request.FILES.get('image')
+        if image_file:
+            compressed = compress_image(image_file)
+            serializer.save(post=post, image=compressed or image_file)
+            return
         serializer.save(post=post)
 
 class CommentListCreateView(generics.ListCreateAPIView):
