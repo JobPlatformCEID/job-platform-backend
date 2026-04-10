@@ -9,7 +9,7 @@ import logging
 from celery import shared_task
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.conf import settings
+from decouple import config
 import redis
 
 from .models import InterviewSession , Message
@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 # redis client this will essentialy be the ais context window
 redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
+    host=config('REDIS_HOST', default='redis'),
+    port=config('REDIS_PORT', default=6379, cast=int),
     db=0,
     decode_responses=True
 )
