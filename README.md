@@ -50,6 +50,7 @@ docker compose exec django python manage.py createsuperuser
 
 ### Users
 | Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
 | GET | `/api/users/me/` | Get current user info including avatar | Token |
 | PATCH | `/api/users/me/` | Update avatar, first name, last name, email | Token |
 | GET | `/api/users/<id>/` | Get public user info | Token |
