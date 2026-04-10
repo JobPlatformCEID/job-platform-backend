@@ -15,9 +15,11 @@ class InterviewSessionSerializer(serializers.ModelSerializer):
         fields = ['id', 'job_role', 'created_at', 'updated_at']
         read_only_fields = ['id', 'created_at', 'updated_at']
 
-# see details of a session
+# see details of a session (includes full message history now)
 class InterviewSessionDetailSerializer(serializers.ModelSerializer):
+    messages = MessageSerializer(many=True, read_only=True)
+
     class Meta:
         model = InterviewSession
         fields = ['id', 'job_role', 'created_at', 'updated_at', 'messages']
-        read_only_fields = ['id', 'created_at', 'updated_at' , 'job_role']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'job_role']

@@ -83,7 +83,7 @@ def generate_ai_response(self , session_id , room_group_name):
         #get history from reddis 
         history = get_history(session_id)
 
-        ai_response = get_ai_response(history)
+        ai_response = get_ai_response(session, history)
 
         #save to db
         ai_msg = Message.objects.create(
