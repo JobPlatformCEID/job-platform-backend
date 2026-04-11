@@ -12,7 +12,7 @@ from channels.layers import get_channel_layer
 from django.conf import settings
 import redis
 
-from .models import InterviewSession, Message
+from .models import InterviewSession, InterviewMessage
 from .services import get_ai_response, summarize_history, SUMMARY_THRESHOLD
 
 logger = logging.getLogger(__name__)
@@ -40,7 +40,7 @@ def get_history(session_id):
         return json.loads(cached)
 
     logger.debug(f"Cache miss for session {session_id} — rebuilding from PostgreSQL")
-    messages = Message.objects.filter(
+    messages = InterviewMessage.objects.filter(
         session_id=session_id
     ).order_by('-created_at')[:SUMMARY_THRESHOLD]
 
@@ -120,14 +120,14 @@ def generate_ai_response(self, session_id, room_group_name):
         ai_content = get_ai_response(session, history)
 
         # 4. Save AI response to PostgreSQL
-        ai_msg = Message.objects.create(
+        ai_msg = InterviewMessage.objects.create(
             session=session,
-            role=Message.Role.Assistant,
+            role=InterviewMessage.Role.Assistant,
             content=ai_content
         )
 
         # 5. Append AI response to Redis
-        append_to_history(session_id, Message.Role.Assistant, ai_content)
+        append_to_history(session_id, InterviewMessage.Role.Assistant, ai_content)
 
         # 6. Push response to WebSocket
         async_to_sync(channel_layer.group_send)(

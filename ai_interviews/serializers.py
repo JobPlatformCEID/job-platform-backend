@@ -1,10 +1,10 @@
 from rest_framework import serializers
-from .models import InterviewSession, Message
+from .models import InterviewSession, InterviewMessage
 
 # send and get messages
 class MessageSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Message
+        model = InterviewMessage
         fields = ['id', 'role', 'content', 'created_at']
         read_only_fields = ['id' , 'created_at']
 

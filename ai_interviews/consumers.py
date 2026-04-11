@@ -5,7 +5,7 @@ import asyncio
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 
-from .models import InterviewSession, Message
+from .models import InterviewSession, InterviewMessage
 from .tasks import generate_ai_response, append_to_history
 
 logger = logging.getLogger(__name__)
@@ -53,7 +53,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             await self.send_error("Message content cannot be empty.")
             return
 
-        user_msg = await self.save_message(role=Message.Role.USER, content=content)
+        user_msg = await self.save_message(role=InterviewMessage.Role.USER, content=content)
 
         loop = asyncio.get_running_loop()
         try:
@@ -99,7 +99,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def save_message(self, role, content):
         session = InterviewSession.objects.get(id=self.session_id)
-        return Message.objects.create(session=session, role=role, content=content)
+        return InterviewMessage.objects.create(session=session, role=role, content=content)
 
     async def send_error(self, message: str):
         await self.send(text_data=json.dumps({

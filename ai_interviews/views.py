@@ -1,7 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
-from .models import InterviewSession, Message
+from .models import InterviewSession, InterviewMessage
 import logging
 from .serializers import (
     InterviewSessionSerializer, 
@@ -22,7 +22,7 @@ class InterviewSessionListCreateView(generics.ListCreateAPIView):
         session = serializer.save(user=self.request.user)
         # Generic openning message maybe this will change (but later)
         opening = 'how may i assist you today'
-        Message.objects.create(session=session , role=Message.Role.Assistant , content = opening)
+        InterviewMessage.objects.create(session=session , role=InterviewMessage.Role.Assistant , content = opening)
 
 class InterviewSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]
@@ -63,9 +63,9 @@ class MessageListCreateView(generics.ListCreateAPIView):
             return Response({"error": "content is required"}, status=status.HTTP_400_BAD_REQUEST)
 
         # Save user message
-        user_msg = Message.objects.create(
+        user_msg = InterviewMessage.objects.create(
             session=session,
-            role=Message.Role.USER,
+            role=InterviewMessage.Role.USER,
             content=request.data.get('content')
         )
 

@@ -18,7 +18,7 @@ class InterviewSession(models.Model):
         return f"{self.user} - {self.job_role}"
 
 # these will be the chat messages
-class Message(models.Model):
+class InterviewMessage(models.Model):
     class Role(models.TextChoices):
         USER = 'user', 'User'
         Assistant = 'assistant', 'Assistant'
