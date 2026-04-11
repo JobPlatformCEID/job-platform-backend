@@ -3,6 +3,7 @@ from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import NotFound, PermissionDenied
+from rest_framework.filters import SearchFilter
 from django.contrib.auth import authenticate
 from core.utils import compress_image
 from .models import User, CandidateProfile, EmployerProfile , Skill , Education , WorkExperience
@@ -70,6 +71,16 @@ class UserMeView(generics.RetrieveUpdateAPIView):
                 serializer.save()
                 return Response(serializer.data)
         return super().update(request, *args, **kwargs)
+
+# User view for showing a list of all users
+class UserListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [SearchFilter]
+    search_fields = ['username', 'first_name', 'last_name']
+
+    def get_queryset(self):
+        return User.objects.exclude(id=self.request.user.id)
 
 # User view for showing a user's public info
 class UserDetailView(generics.RetrieveAPIView):

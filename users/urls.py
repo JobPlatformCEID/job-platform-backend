@@ -1,7 +1,7 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
-    RegisterView, LoginView, LogoutView, UserMeView, UserDetailView,
+    RegisterView, LoginView, LogoutView, UserListView, UserMeView, UserDetailView,
     CandidateProfileView, CandidateProfileDetailView, EmployerProfileView,
     EmployerProfileDetailView, EmployerListView,
     SkillViewSet, EducationViewSet, WorkExperienceViewSet
@@ -16,6 +16,7 @@ urlpatterns = [
     path('auth/register/', RegisterView.as_view()),
     path('auth/login/', LoginView.as_view()),
     path('auth/logout/', LogoutView.as_view()),
+    path('users/', UserListView.as_view()),
     path('users/me/', UserMeView.as_view()),
     path('users/<int:pk>/', UserDetailView.as_view()),
     path('candidates/me/', CandidateProfileView.as_view()),
