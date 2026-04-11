@@ -23,27 +23,6 @@ services:
       redis:
         condition: service_healthy
 
-  # --- CELERY FOR GROQ 
-  celery-worker:
-    build: .
-    container_name: celery-worker
-    command: celery -A core worker --loglevel=info --concurrency=4
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - AI_BACKEND=groq
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-
   postgres:
     image: postgres:16
     ports:
@@ -113,7 +92,6 @@ services:
       redis:
         condition: service_healthy
   # --- OLLAMA FOR NVIDIA USERS ---
-  # Usage: docker compose --profile nvidia up -d
   ollama-nvidia:
     image: ollama/ollama:latest
     container_name: ollama-nvidia
@@ -140,9 +118,6 @@ services:
       - default
 
   # --- LLAMA.CPP FOR AMD USERS ---
-  # Usage: docker compose --profile amd up -d
-  # Place your .gguf model in ./models/ before starting
-  # Check your GPU architecture: 10.3.0 = RDNA2, 11.0.0 = RDNA3
   llama-cpp-amd:
     image: ghcr.io/ggml-org/llama.cpp:server-rocm
     container_name: llama-cpp-amd
@@ -169,7 +144,6 @@ services:
       - default
 
   # --- LLAMA.CPP CPU ONLY ---
-  # Usage: docker compose --profile cpu up -d
   llama-cpp-cpu:
     image: ghcr.io/ggml-org/llama.cpp:server
     container_name: llama-cpp-cpu
@@ -187,11 +161,9 @@ services:
     networks:
       - default
 
-  # --- CELERY FOR NVIDIA (ollama) ---
-  celery-worker-nvidia:
+  celery-worker:
     build: .
-    container_name: celery-worker-nvidia
-    profiles: [nvidia]
+    container_name: celery-worker
     command: celery -A core worker --loglevel=info --concurrency=4
     volumes:
       - .:/app
@@ -202,66 +174,11 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - OLLAMA_HOST=http://ollama-nvidia:11434
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-      ollama-nvidia:
-        condition: service_started
-    networks:
-      - default
-
-  # --- CELERY FOR AMD (llama.cpp) ---
-  celery-worker-amd:
-    build: .
-    container_name: celery-worker-amd
-    profiles: [amd]
-    command: celery -A core worker --loglevel=info --concurrency=4
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LLAMA_HOST=http://llama-cpp-amd:8080
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      llama-cpp-amd:
-        condition: service_started
-    networks:
-      - default
-
-  # --- CELERY FOR CPU (llama.cpp) ---
-  celery-worker-cpu:
-    build: .
-    container_name: celery-worker-cpu
-    profiles: [cpu]
-    command: celery -A core worker --loglevel=info --concurrency=4
-    volumes:
-      - .:/app
-    env_file:
-      - .env
-    environment:
-      - DB_HOST=postgres
-      - DB_PORT=5432
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - LLAMA_HOST=http://llama-cpp-cpu:8080
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-      llama-cpp-cpu:
-        condition: service_started
     networks:
       - default
 
