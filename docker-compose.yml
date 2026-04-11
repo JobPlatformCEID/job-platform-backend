@@ -68,6 +68,30 @@ services:
       timeout: 5s
       retries: 5
 
+  livekit:
+    image: livekit/livekit-server:latest
+    ports:    # Use "network_mode: host" in prod for better performance
+      - "7880:7880"
+      - "7881:7881"
+      - "7882-7892:7882-7892/udp"
+    environment:
+      LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
+      LIVEKIT_CONFIG: |
+        port: 7880
+        rtc:
+          tcp_port: 7881
+          udp_port: 7882-7892
+          use_external_ip: false
+        redis:
+          address: redis:6379
+        logging:
+          level: warn
+          sample: true
+    command: --bind 0.0.0.0
+    depends_on:
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres_data:
   minio_data:

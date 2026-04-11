@@ -7,6 +7,7 @@
 - Django 6.0, DRF
 - PostgreSQL
 - MinIO
+- LiveKit
 
 ## Running with Docker (recommended)
 
@@ -122,13 +123,14 @@ docker compose exec django python manage.py createsuperuser
 | DELETE | `/api/conversations/<id>/messages/<message_id>/` | Delete a message (sender only) | Token |
 
 ### Calls
-| Event | Endpoint | Description | Auth |
-|-------|----------|-------------|------|
-| GET | `/api/calls/` | List all available call rooms
-| POST | `/api/calls/` | Create a new room (Restricted to Employers; includes past-date validation)
-| GET | `/api/calls/<id>/` | Get room details
-| PUT | `/api/calls/<id>/` | Update room (Restricted to Room Host)
-| DELETE | `/api/calls/<id>/` | Delete room (Restricted to Room Host)
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/calls/` | List all rooms | Token |
+| POST | `/api/calls/` | Create a room (employer only) | Token |
+| GET | `/api/calls/<id>/` | Get room details | Token |
+| PUT | `/api/calls/<id>/` | Update room (host only) | Token |
+| DELETE | `/api/calls/<id>/` | Delete room (host only) | Token |
+| POST | `/api/calls/<id>/token/` | Get LiveKit token to join | Token |
 
 ### WebSocket
 | Event | Endpoint | Description | Auth |
