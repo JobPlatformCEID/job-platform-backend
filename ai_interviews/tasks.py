@@ -36,8 +36,10 @@ def get_history(session_id):
     cached = redis_client.get(key)
 
     if cached:
-        logger.debug(f"Cache hit for session {session_id}")
-        return json.loads(cached)
+        history = json.loads(cached)
+        logger.info(f"Cache hit for session {session_id} — history length: {len(history)}")
+        logger.info(f"AI history for session {session_id}: {json.dumps(history, ensure_ascii=False)}")
+        return history
 
     logger.debug(f"Cache miss for session {session_id} — rebuilding from PostgreSQL")
     messages = InterviewMessage.objects.filter(
@@ -50,6 +52,8 @@ def get_history(session_id):
     ]
 
     redis_client.set(key, json.dumps(history), ex=60*60*24)
+    logger.info(f"Rebuilt AI history for session {session_id} — history length: {len(history)}")
+    logger.info(f"AI history for session {session_id}: {json.dumps(history, ensure_ascii=False)}")
     return history
 
 # append a message to redis
