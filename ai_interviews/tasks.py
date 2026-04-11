@@ -1,47 +1,35 @@
 # Tasks.py is in charge of
-# building the conversation history from db or reddis
+# building the conversation history from db or redis
 # calling ai via services.py
-# saving response to db (or reddis)
+# saving response to db (or redis)
 # pushing the ai response to frontend via websocket to be less taxing on the backend
 
-import json
 import logging
 from celery import shared_task
 from asgiref.sync import async_to_sync
 from channels.layers import get_channel_layer
-from django.conf import settings
-import redis
+from django.core.cache import cache
 
 from .models import InterviewSession, InterviewMessage
 from .services import get_ai_response, summarize_history, SUMMARY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
-# --- REDIS CLIENT ---
-redis_client = redis.Redis(
-    host=settings.REDIS_HOST,
-    port=settings.REDIS_PORT,
-    db=0,
-    decode_responses=True
-)
-
 HISTORY_KEY = "interview:session:{}:history"
 SUMMARY_KEY = "interview:session:{}:summary"
 
 
 # --- HISTORY MANAGEMENT ---
-# get conversation history from reddis to initialise , fallsback to db if it isnt there
+# get conversation history from redis to initialise, falls back to db if it isnt there
 def get_history(session_id):
     key = HISTORY_KEY.format(session_id)
-    cached = redis_client.get(key)
+    cached = cache.get(key)
 
     if cached:
-        history = json.loads(cached)
-        logger.info(f"Cache hit for session {session_id} — history length: {len(history)}")
-        logger.info(f"AI history for session {session_id}: {json.dumps(history, ensure_ascii=False)}")
-        return history
+        logger.info(f"Cache hit for session {session_id}, history length: {len(cached)}")
+        return cached
 
-    logger.debug(f"Cache miss for session {session_id} — rebuilding from PostgreSQL")
+    logger.debug(f"Cache miss for session {session_id}, rebuilding from PostgreSQL")
     messages = InterviewMessage.objects.filter(
         session_id=session_id
     ).order_by('-created_at')[:SUMMARY_THRESHOLD]
@@ -51,19 +39,17 @@ def get_history(session_id):
         for msg in reversed(messages)
     ]
 
-    redis_client.set(key, json.dumps(history), ex=60*60*24)
-    logger.info(f"Rebuilt AI history for session {session_id} — history length: {len(history)}")
-    logger.info(f"AI history for session {session_id}: {json.dumps(history, ensure_ascii=False)}")
+    cache.set(key, history, timeout=60*60*24)
+    logger.info(f"Rebuilt AI history for session {session_id}, history length: {len(history)}")
     return history
 
 # append a message to redis
 def append_to_history(session_id, role, content):
     key = HISTORY_KEY.format(session_id)
-    cached = redis_client.get(key)
-    history = json.loads(cached) if cached else []
+    history = cache.get(key) or []
 
     history.append({"role": role, "content": content})
-    redis_client.set(key, json.dumps(history), ex=60*60*24)
+    cache.set(key, history, timeout=60*60*24)
 
     return len(history)
 
@@ -78,10 +64,10 @@ def compress_history(session, history):
     recent = history[-4:]
 
     # Store summary separately
-    redis_client.set(
+    cache.set(
         SUMMARY_KEY.format(session.id),
         summary,
-        ex=60*60*24
+        timeout=60*60*24
     )
 
     # Replace history with summary message + recent messages
@@ -90,18 +76,18 @@ def compress_history(session, history):
         *recent
     ]
 
-    redis_client.set(
+    cache.set(
         HISTORY_KEY.format(session.id),
-        json.dumps(compressed),
-        ex=60*60*24
+        compressed,
+        timeout=60*60*24
     )
 
     return compressed
 
 # Clear Redis cache for a session when deleted.
 def invalidate_history(session_id):
-    redis_client.delete(HISTORY_KEY.format(session_id))
-    redis_client.delete(SUMMARY_KEY.format(session_id))
+    cache.delete(HISTORY_KEY.format(session_id))
+    cache.delete(SUMMARY_KEY.format(session_id))
 
 
 # --- CELERY TASK ---

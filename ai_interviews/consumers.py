@@ -25,7 +25,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
             return
 
         user = self.scope.get('user')
-        if not user or user != session.user:
+        if not user or not user.is_authenticated or user != session.user:
             logger.error(f'session {self.session_id} doesnt belong to {user}')
             await self.close(code=4403)
             return

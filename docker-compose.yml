@@ -15,6 +15,9 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - DAPHNE_PORT=8001
+      - AI_NVIDIA_ENDPOINT=http://ollama-nvidia:11434
+      - AI_AMD_ENDPOINT=http://llama-cpp-amd:8080
+      - AI_CPU_ENDPOINT=http://llama-cpp-cpu:8080
     depends_on:
       postgres:
         condition: service_healthy
@@ -91,6 +94,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+
   # --- OLLAMA FOR NVIDIA USERS ---
   ollama-nvidia:
     image: ollama/ollama:latest
@@ -104,7 +108,7 @@ services:
       - OLLAMA_HOST=0.0.0.0
       - OLLAMA_NUM_PARALLEL=4
       - OLLAMA_MAX_LOADED_MODELS=1
-    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull ${OLLAMA_MODEL:-qwen2.5:3b} && wait"]
+    entrypoint: ["/bin/sh", "-c", "ollama serve & sleep 5 && ollama pull ${AI_LOCAL_MODEL:-qwen2.5:3b} && wait"]
     env_file:
       - .env
     deploy:
@@ -127,7 +131,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - LLAMA_ARG_MODEL=/models/${LLAMA_MODEL:-model.gguf}
+      - LLAMA_ARG_MODEL=/models/${AI_LOCAL_MODEL:-model.gguf}
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=8080
       - LLAMA_ARG_N_GPU_LAYERS=999
@@ -153,7 +157,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - LLAMA_ARG_MODEL=/models/${LLAMA_MODEL:-model.gguf}
+      - LLAMA_ARG_MODEL=/models/${AI_LOCAL_MODEL:-model.gguf}
       - LLAMA_ARG_HOST=0.0.0.0
       - LLAMA_ARG_PORT=8080
       - LLAMA_ARG_PARALLEL=2
@@ -162,7 +166,7 @@ services:
       - default
 
   celery-worker:
-    build: .
+    image: job-platform-backend-django  # reuse the already-built django image
     container_name: celery-worker
     command: celery -A core worker --loglevel=info --concurrency=4
     volumes:
@@ -172,15 +176,17 @@ services:
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432
+      - MINIO_ENDPOINT=minio:9000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - AI_NVIDIA_ENDPOINT=http://ollama-nvidia:11434
+      - AI_AMD_ENDPOINT=http://llama-cpp-amd:8080
+      - AI_CPU_ENDPOINT=http://llama-cpp-cpu:8080
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    networks:
-      - default
 
 volumes:
   postgres_data:
