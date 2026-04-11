@@ -202,7 +202,6 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - AI_BACKEND=ollama
       - OLLAMA_HOST=http://ollama-nvidia:11434
     depends_on:
       postgres:
@@ -229,7 +228,6 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - AI_BACKEND=llama
       - LLAMA_HOST=http://llama-cpp-amd:8080
     depends_on:
       postgres:
@@ -256,7 +254,6 @@ services:
       - DB_PORT=5432
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - AI_BACKEND=llama
       - LLAMA_HOST=http://llama-cpp-cpu:8080
     depends_on:
       postgres:

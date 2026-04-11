@@ -81,10 +81,6 @@ def get_opening_message(session):
 
 
 def summarize_history(session, history):
-    """
-    Ask the AI to summarize the conversation so far.
-    Returns a summary string to replace old history in Redis.
-    """
     messages = [
         {"role": "system", "content": get_system_prompt(session)},
         *history,
@@ -95,7 +91,36 @@ def summarize_history(session, history):
     return _ollama_response(messages)
 
 
+import logging
+logger = logging.getLogger(__name__)
+
+def _groq_response(messages):
+    from groq import Groq
+    logger.info(f"Using Groq model: {GROQ_MODEL}")
+    client = Groq(api_key=GROQ_API_KEY)
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=messages
+    )
+    return response.choices[0].message.content
+
+
+import logging
+logger = logging.getLogger(__name__)
+
+def _groq_response(messages):
+    from groq import Groq
+    logger.info(f"Using Groq model: {GROQ_MODEL}")
+    client = Groq(api_key=GROQ_API_KEY)
+    response = client.chat.completions.create(
+        model=GROQ_MODEL,
+        messages=messages
+    )
+    return response.choices[0].message.content
+
+
 def _ollama_response(messages):
+    logger.info(f"Using Groq model: {OLLAMA_MODEL}")
     response = httpx.post(
         f"{OLLAMA_HOST}/v1/chat/completions",
         json={
@@ -107,13 +132,3 @@ def _ollama_response(messages):
     )
     response.raise_for_status()
     return response.json()["choices"][0]["message"]["content"]
-
-
-def _groq_response(messages):
-    from groq import Groq
-    client = Groq(api_key=GROQ_API_KEY)
-    response = client.chat.completions.create(
-        model=GROQ_MODEL,
-        messages=messages
-    )
-    return response.choices[0].message.content
