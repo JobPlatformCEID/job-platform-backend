@@ -122,6 +122,14 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/api/conversations/<id>/messages/` | List all messages in a conversation | Token |
 | DELETE | `/api/conversations/<id>/messages/<message_id>/` | Delete a message (sender only) | Token |
 
+### Mock ai interviews
+| Event | Endpoint | Description | Auth |
+|-------|----------|-------------|------|
+| GET | `/sessions/` | List all user's interview sessions | Required |
+| POST | `/sessions/` | Create a new interview session | Required |
+| GET | `/sessions/<id>/` | Get session details + all messages | Required |
+| DELETE | `/sessions/<id>/` | Delete a session | Required |
+
 ### Calls
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
@@ -186,6 +194,10 @@ Authorization: Token <your-token>
 | `MINIO_USER` | MinIO username (Default: jobplatform) |
 | `MINIO_PASSWORD` | MinIO password (Default: jobplatform) |
 | `MINIO_BUCKET` | MinIO bucket name (Default: jobplatform) |
+| `AI_BACKEND` | Decides if your gonna use local ai or groq api (Default: ollama)|
+| `OLLAMA_MODEL` | default ollama model |
+| `LLAMA_MODEL` | default llama model for amd | 
+
 
 ## Progress
 
@@ -196,3 +208,4 @@ Authorization: Token <your-token>
 - Added social networking and some tests in social/tests.py
 - Added messaging with WebSocket connections and some tests in messaging/tests.py
 - Added support for deleting conversations and messages in messaging app
+- implemented a basic ui with ai mock interviews (need to improve system prompt)

@@ -1,0 +1,8 @@
+Based on the interview so far, provide a brief structured summary in Greek with the following sections:
+
+1. ΓΕΝΙΚΗ ΕΝΤΥΠΩΣΗ: A brief overall impression of the candidate so far.
+2. ΔΥΝΑΤΑ ΣΗΜΕΙΑ: The candidate's key strengths demonstrated in the interview.
+3. ΚΡΙΣΙΜΑ ΛΑΘΗ: Critical mistakes or gaps the candidate has shown.
+4. ΕΠΟΜΕΝΑ ΒΗΜΑΤΑ: What the interviewer should focus on next in the interview.
+
+Keep it concise — this is an internal note, not feedback to the candidate.

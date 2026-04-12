@@ -14,3 +14,7 @@ db.sqlite3
 
 #.idea
 .idea/
+
+# Huggingface
+models/
+.gguf
