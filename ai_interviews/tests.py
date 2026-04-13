@@ -281,3 +281,61 @@ class RedisTests(TestCase):
         # confirm the group_send payload contained an error type
         send_call_args = mock_channel_send.call_args[0][1]
         self.assertEqual(send_call_args['type'], 'error')
+
+class ServicesTest(TestCase):
+ 
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='pass')
+        self.session = InterviewSession.objects.create(user=self.user, job_role='Cloud Architect')
+ 
+    def test_get_system_prompt_includes_job_role(self):
+        prompt = get_system_prompt(self.session)
+        self.assertIn('Cloud Architect', prompt)
+ 
+    def test_build_messages_starts_with_system(self):
+        history = [{'role': 'user', 'content': 'hello'}]
+        messages = build_messages(self.session, history)
+        self.assertEqual(messages[0]['role'], 'system')
+ 
+    def test_build_messages_includes_history(self):
+        history = [{'role': 'user', 'content': 'my question'}]
+        messages = build_messages(self.session, history)
+        contents = [m['content'] for m in messages]
+        self.assertIn('my question', contents)
+ 
+    @patch('ai_interviews.services._groq_response')
+    @patch('ai_interviews.services.settings')
+    def test_get_ai_response_uses_groq_when_configured(self, mock_settings, mock_groq):
+        mock_settings.AI_BACKEND = 'groq'
+        mock_groq.return_value = 'groq answer'
+        history = [{'role': 'user', 'content': 'question'}]
+        result = get_ai_response(self.session, history)
+        self.assertEqual(result, 'groq answer')
+        mock_groq.assert_called_once()
+ 
+    @patch('ai_interviews.services._ollama_response')
+    @patch('ai_interviews.services.settings')
+    def test_get_ai_response_falls_back_to_ollama(self, mock_settings, mock_ollama):
+        mock_settings.AI_BACKEND = 'ollama'
+        mock_ollama.return_value = 'local answer'
+        history = [{'role': 'user', 'content': 'question'}]
+        result = get_ai_response(self.session, history)
+        self.assertEqual(result, 'local answer')
+        mock_ollama.assert_called_once()
+ 
+    @patch('ai_interviews.services._groq_response')
+    @patch('ai_interviews.services.settings')
+    def test_get_opening_message_calls_backend(self, mock_settings, mock_groq):
+        mock_settings.AI_BACKEND = 'groq'
+        mock_groq.return_value = 'Welcome!'
+        result = get_opening_message(self.session)
+        self.assertEqual(result, 'Welcome!')
+ 
+    @patch('ai_interviews.services._groq_response')
+    @patch('ai_interviews.services.settings')
+    def test_summarize_history_returns_summary(self, mock_settings, mock_groq):
+        mock_settings.AI_BACKEND = 'groq'
+        mock_groq.return_value = 'Summary here.'
+        history = [{'role': 'user', 'content': 'lots of messages'}]
+        result = summarize_history(self.session, history)
+        self.assertEqual(result, 'Summary here.')
