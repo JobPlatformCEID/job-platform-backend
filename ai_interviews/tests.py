@@ -339,3 +339,81 @@ class ServicesTest(TestCase):
         history = [{'role': 'user', 'content': 'lots of messages'}]
         result = summarize_history(self.session, history)
         self.assertEqual(result, 'Summary here.')
+
+
+class InterviewConsumerTest(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(username='wsuser', password='pass')
+        self.session = InterviewSession.objects.create(user=self.user, job_role='iOS Dev')
+ 
+    async def _make_communicator(self, session_id=None, user=None):
+        from .consumers import InterviewConsumer
+        sid = session_id or self.session.id
+        u = user or self.user
+        communicator = WebsocketCommunicator(
+            InterviewConsumer.as_asgi(),
+            f'/ws/interviews/{sid}/'
+        )
+        communicator.scope['user'] = u
+        communicator.scope['url_route'] = {'kwargs': {'session_id': str(sid)}}
+        return communicator
+ 
+    async def test_connect_valid_session_and_user(self):
+        communicator = await self._make_communicator()
+        connected, _ = await communicator.connect()
+        self.assertTrue(connected)
+        await communicator.disconnect()
+ 
+    async def test_connect_nonexistent_session_closes_4404(self):
+        communicator = await self._make_communicator(session_id=99999)
+        connected, code = await communicator.connect()
+        self.assertFalse(connected)
+        self.assertEqual(code, 4404)
+ 
+    async def test_connect_wrong_user_closes_4403(self):
+        other_user = await User.objects.acreate(username='other', password='pass')
+        communicator = await self._make_communicator(user=other_user)
+        connected, code = await communicator.connect()
+        self.assertFalse(connected)
+        self.assertEqual(code, 4403)
+ 
+    async def test_send_empty_message_returns_error(self):
+        communicator = await self._make_communicator()
+        await communicator.connect()
+        await communicator.send_json_to({'content': ''})
+        response = await communicator.receive_json_from()
+        self.assertEqual(response['type'], 'error')
+        await communicator.disconnect()
+ 
+    async def test_send_invalid_json_returns_error(self):
+        communicator = await self._make_communicator()
+        await communicator.connect()
+        await communicator.send_to(text_data='not json at all')
+        response = await communicator.receive_json_from()
+        self.assertEqual(response['type'], 'error')
+        await communicator.disconnect()
+ 
+    @patch('ai_interviews.consumers.generate_ai_response')
+    @patch('ai_interviews.consumers.append_to_history')
+    async def test_valid_message_echoed_back_as_user_message(self, mock_append, mock_task):
+        mock_append.return_value = 1
+        mock_task.delay = MagicMock()
+        communicator = await self._make_communicator()
+        await communicator.connect()
+        await communicator.send_json_to({'content': 'Tell me about your experience.'})
+        response = await communicator.receive_json_from()
+        self.assertEqual(response['type'], 'user_message')
+        self.assertEqual(response['message']['content'], 'Tell me about your experience.')
+        await communicator.disconnect()
+ 
+    @patch('ai_interviews.consumers.generate_ai_response')
+    @patch('ai_interviews.consumers.append_to_history')
+    async def test_valid_message_triggers_celery_task(self, mock_append, mock_task):
+        mock_append.return_value = 1
+        mock_task.delay = MagicMock()
+        communicator = await self._make_communicator()
+        await communicator.connect()
+        await communicator.send_json_to({'content': 'What is your biggest challenge?'})
+        await communicator.receive_json_from()  # consume the user_message echo
+        mock_task.delay.assert_called_once_with(str(self.session.id), f'interview_session_{self.session.id}')
+        await communicator.disconnect()
