@@ -69,7 +69,7 @@ class InterviewSessionModelTest(TestCase):
  
     
 class InterviewSessionListCreateViewTest(APITestCase):
-    
+
     def setUp(self):
         self.user = User.objects.create_user(username='alice', password='pass')
         self.other_user = User.objects.create_user(username='bob', password='pass')
@@ -166,3 +166,118 @@ class MessageListCreateViewTest(APITestCase):
         url = f'/api/interviews/{other_session.pk}/messages/'
         response = self.client.post(url, {'content': 'sneaky message'})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+
+class RedisTests(TestCase):
+ 
+    def setUp(self):
+        self.user = User.objects.create_user(username='testuser', password='pass')
+        self.session = InterviewSession.objects.create(user=self.user, job_role='ML Engineer')
+        cache.clear()
+ 
+    def tearDown(self):
+        cache.clear()
+ 
+    def test_get_history_returns_from_cache_when_available(self):
+        key = HISTORY_KEY.format(self.session.id)
+        cached_history = [{'role': 'user', 'content': 'cached'}]
+        cache.set(key, cached_history, timeout=3600)
+        result = get_history(self.session.id)
+        self.assertEqual(result, cached_history)
+ 
+    def test_get_history_falls_back_to_db_on_cache_miss(self):
+        InterviewMessage.objects.create(session=self.session, role='user', content='from db')
+        result = get_history(self.session.id)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]['content'], 'from db')
+ 
+    def test_get_history_db_fallback_populates_cache(self):
+        InterviewMessage.objects.create(session=self.session, role='user', content='populate me')
+        get_history(self.session.id)
+        self.assertIsNotNone(cache.get(HISTORY_KEY.format(self.session.id)))
+ 
+    def test_get_history_empty_returns_empty_list(self):
+        self.assertEqual(get_history(self.session.id), [])
+ 
+    def test_append_adds_to_existing_history(self):
+        key = HISTORY_KEY.format(self.session.id)
+        cache.set(key, [{'role': 'user', 'content': 'first'}], timeout=3600)
+        length = append_to_history(self.session.id, 'assistant', 'second')
+        self.assertEqual(length, 2)
+ 
+    def test_append_creates_history_when_none_exists(self):
+        length = append_to_history(self.session.id, 'user', 'hello')
+        self.assertEqual(length, 1)
+ 
+    def test_append_persists_message_in_cache(self):
+        append_to_history(self.session.id, 'user', 'test message')
+        history = cache.get(HISTORY_KEY.format(self.session.id))
+        self.assertEqual(history[0]['content'], 'test message')
+ 
+    @patch('ai_interviews.tasks.summarize_history')
+    def test_compress_replaces_history_with_summary_and_recent(self, mock_summarize):
+        mock_summarize.return_value = 'This is a summary.'
+        history = [{'role': 'user', 'content': f'msg {i}'} for i in range(10)]
+        result = compress_history(self.session, history)
+        # 1 summary system message + 4 recent messages
+        self.assertEqual(len(result), 5)
+        self.assertEqual(result[0]['role'], 'system')
+ 
+    @patch('ai_interviews.tasks.summarize_history')
+    def test_compress_stores_summary_in_cache(self, mock_summarize):
+        mock_summarize.return_value = 'Summary text.'
+        history = [{'role': 'user', 'content': f'msg {i}'} for i in range(10)]
+        compress_history(self.session, history)
+        self.assertEqual(cache.get(SUMMARY_KEY.format(self.session.id)), 'Summary text.')
+
+ 
+    def test_invalidate_clears_both_history_and_summary_keys(self):
+        cache.set(HISTORY_KEY.format(self.session.id), [{'role': 'user', 'content': 'hi'}])
+        cache.set(SUMMARY_KEY.format(self.session.id), 'Some summary')
+        invalidate_history(self.session.id)
+        self.assertIsNone(cache.get(HISTORY_KEY.format(self.session.id)))
+        self.assertIsNone(cache.get(SUMMARY_KEY.format(self.session.id)))
+ 
+    @patch('ai_interviews.tasks.async_to_sync')
+    @patch('ai_interviews.tasks.get_ai_response')
+    @patch('ai_interviews.tasks.get_history')
+    def test_generate_saves_ai_message_to_db(self, mock_history, mock_ai, mock_async):
+        mock_history.return_value = [{'role': 'user', 'content': 'hello'}]
+        mock_ai.return_value = 'AI response text'
+        mock_async.return_value = MagicMock()
+ 
+        generate_ai_response(self.session.id, 'interview_session_1')
+ 
+        ai_msg = InterviewMessage.objects.filter(
+            session=self.session, role=InterviewMessage.Role.Assistant
+        ).last()
+        self.assertIsNotNone(ai_msg)
+        self.assertEqual(ai_msg.content, 'AI response text')
+ 
+    @patch('ai_interviews.tasks.async_to_sync')
+    @patch('ai_interviews.tasks.get_ai_response')
+    @patch('ai_interviews.tasks.get_history')
+    def test_generate_triggers_compression_when_threshold_reached(self, mock_history, mock_ai, mock_async):
+        mock_history.return_value = [{'role': 'user', 'content': f'msg {i}'} for i in range(SUMMARY_THRESHOLD)]
+        mock_ai.return_value = 'response'
+        mock_async.return_value = MagicMock()
+ 
+        with patch('ai_interviews.tasks.compress_history') as mock_compress:
+            mock_compress.return_value = [{'role': 'system', 'content': 'summary'}]
+            generate_ai_response(self.session.id, 'interview_session_1')
+            mock_compress.assert_called_once()
+ 
+    @patch('ai_interviews.tasks.async_to_sync')
+    @patch('ai_interviews.tasks.get_history')
+    def test_generate_sends_error_to_websocket_on_failure(self, mock_history, mock_async):
+        mock_history.side_effect = Exception('Unexpected error')
+        mock_channel_send = MagicMock()
+        mock_async.return_value = mock_channel_send
+ 
+        # apply() swallows the exception after retries — check the side effect instead
+        generate_ai_response.apply(args=[self.session.id, 'interview_session_1'])
+ 
+        # async_to_sync should have been called to push an error to the WebSocket
+        mock_async.assert_called()
+        # confirm the group_send payload contained an error type
+        send_call_args = mock_channel_send.call_args[0][1]
+        self.assertEqual(send_call_args['type'], 'error')
