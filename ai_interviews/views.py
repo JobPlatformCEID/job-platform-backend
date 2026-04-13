@@ -70,35 +70,3 @@ class MessageListCreateView(generics.ListCreateAPIView):
         )
 
         return Response(MessageSerializer(user_msg).data, status=status.HTTP_201_CREATED)
-    
-class SkillViewSet(viewsets.ModelViewSet):
-    serializer_class = SkillSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Skill.objects.filter(candidate=self.request.user.candidate_profile)
-
-    def perform_create(self, serializer):
-        serializer.save(candidate=self.request.user.candidate_profile)
-
-
-class EducationViewSet(viewsets.ModelViewSet):
-    serializer_class = EducationSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return Education.objects.filter(candidate=self.request.user.candidate_profile)
-
-    def perform_create(self, serializer):
-        serializer.save(candidate=self.request.user.candidate_profile)
-
-
-class WorkExperienceViewSet(viewsets.ModelViewSet):
-    serializer_class = WorkExperienceSerializer
-    permission_classes = [IsAuthenticated]
-
-    def get_queryset(self):
-        return WorkExperience.objects.filter(candidate=self.request.user.candidate_profile)
-
-    def perform_create(self, serializer):
-        serializer.save(candidate=self.request.user.candidate_profile)
