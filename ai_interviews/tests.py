@@ -25,6 +25,7 @@ class InterviewSessionModelTest(TestCase):
  
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='pass')
+        self.session = InterviewSession.objects.create(user=self.user, job_role='QA Engineer')
  
     def test_session_str(self):
         session = InterviewSession.objects.create(user=self.user, job_role='Backend Engineer')
@@ -40,4 +41,28 @@ class InterviewSessionModelTest(TestCase):
         sessions = list(InterviewSession.objects.filter(user=self.user))
         self.assertEqual(sessions[0], s2)
         self.assertEqual(sessions[1], s1)
+
+    def test_message_str_truncates(self):
+        msg = InterviewMessage.objects.create(
+            session=self.session,
+            role=InterviewMessage.Role.USER,
+            content='A' * 100,
+        )
+        self.assertLessEqual(len(str(msg)), 60)
+
+    def test_message_role_choices(self):
+        user_msg = InterviewMessage.objects.create(
+            session=self.session, role=InterviewMessage.Role.USER, content='hi'
+        )
+        ai_msg = InterviewMessage.objects.create(
+            session=self.session, role=InterviewMessage.Role.Assistant, content='hello'
+        )
+        self.assertEqual(user_msg.role, 'user')
+        self.assertEqual(ai_msg.role, 'assistant')
  
+    def test_messages_ordered_by_created_at(self):
+        m1 = InterviewMessage.objects.create(session=self.session, role='user', content='first')
+        m2 = InterviewMessage.objects.create(session=self.session, role='assistant', content='second')
+        messages = list(self.session.messages.all())
+        self.assertEqual(messages[0], m1)
+        self.assertEqual(messages[1], m2)
