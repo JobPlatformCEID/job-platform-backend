@@ -68,3 +68,21 @@ class EmployerListSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
         fields = ['id', 'company_name', 'location', 'website']
+
+class SkillSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Skill
+        fields = ['id', 'name']
+        read_only_fields = ['id']
+
+class EducationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Education
+        fields = ['id', 'institution', 'degree', 'level', 'graduation_date']
+        read_only_fields = ['id']
+
+class WorkExperienceSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = WorkExperience
+        fields = ['id', 'title', 'company', 'employment_type', 'start_date', 'end_date', 'description']
+        read_only_fields = ['id']

@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import InterviewSession, InterviewMessage
+from .models import(
+    InterviewSession, InterviewMessage , Skill ,
+    Education , WorkExperience , Education
+)
 
 # send and get messages
 class MessageSerializer(serializers.ModelSerializer):

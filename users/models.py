@@ -42,13 +42,24 @@ class EmployerProfile(models.Model):
 
 # Models for candidate users
 class WorkExperience(models.Model):
+    class EmploymentType(models.TextChoices):
+        FULL_TIME  = 'full_time',  'Full Time'
+        PART_TIME  = 'part_time',  'Part Time'
+        FREELANCE  = 'freelance',  'Freelance'
+        INTERNSHIP = 'internship', 'Internship'
+        CONTRACT   = 'contract',   'Contract'
+
     candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='work_experiences')
     title = models.CharField(max_length=100)
     company = models.CharField(max_length=100)
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
     description = models.TextField(blank=True)
-
+    employment_type = models.CharField(
+        max_length=20,
+        choices=EmploymentType.choices,
+        blank=True
+    )
 class Education(models.Model):
     candidate = models.ForeignKey(CandidateProfile, on_delete=models.CASCADE, related_name='educations')
     institution = models.CharField(max_length=100)
