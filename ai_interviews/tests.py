@@ -26,7 +26,7 @@ class InterviewSessionModelTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='pass')
         self.session = InterviewSession.objects.create(user=self.user, job_role='QA Engineer')
- 
+
     def test_session_str(self):
         session = InterviewSession.objects.create(user=self.user, job_role='Backend Engineer')
         self.assertIn('Backend Engineer', str(session))
@@ -66,3 +66,103 @@ class InterviewSessionModelTest(TestCase):
         messages = list(self.session.messages.all())
         self.assertEqual(messages[0], m1)
         self.assertEqual(messages[1], m2)
+ 
+    
+class InterviewSessionListCreateViewTest(APITestCase):
+    
+    def setUp(self):
+        self.user = User.objects.create_user(username='alice', password='pass')
+        self.other_user = User.objects.create_user(username='bob', password='pass')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.url = '/api/sessions/'
+ 
+    def test_create_session_creates_opening_message(self):
+        response = self.client.post(self.url, {'job_role': 'Data Scientist', 'title': 'Test'})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        session_id = response.data['id']
+        msgs = InterviewMessage.objects.filter(session_id=session_id)
+        self.assertEqual(msgs.count(), 1)
+        self.assertEqual(msgs.first().role, InterviewMessage.Role.Assistant)
+ 
+    def test_list_returns_only_own_sessions(self):
+        InterviewSession.objects.create(user=self.user, job_role='Dev')
+        InterviewSession.objects.create(user=self.other_user, job_role='Manager')
+        response = self.client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
+ 
+    def test_unauthenticated_request_is_rejected(self):
+        client = APIClient()
+        response = client.get(self.url)
+        self.assertEqual(response.status_code, status.HTTP_401_UNAUTHORIZED)
+ 
+ 
+class InterviewSessionDetailViewTest(APITestCase):
+ 
+    def setUp(self):
+        self.user = User.objects.create_user(username='alice', password='pass')
+        self.other_user = User.objects.create_user(username='bob', password='pass')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.session = InterviewSession.objects.create(user=self.user, job_role='DevOps')
+ 
+    def _url(self, pk):
+        return f'/api/sessions/{pk}/'
+ 
+    def test_retrieve_own_session(self):
+        response = self.client.get(self._url(self.session.pk))
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+ 
+    def test_cannot_retrieve_other_users_session(self):
+        other_session = InterviewSession.objects.create(user=self.other_user, job_role='PM')
+        response = self.client.get(self._url(other_session.pk))
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
+ 
+    def test_delete_own_session(self):
+        response = self.client.delete(self._url(self.session.pk))
+        self.assertEqual(response.status_code, status.HTTP_204_NO_CONTENT)
+        self.assertFalse(InterviewSession.objects.filter(pk=self.session.pk).exists())
+ 
+    def test_cannot_delete_other_users_session(self):
+        other_session = InterviewSession.objects.create(user=self.other_user, job_role='PM')
+        response = self.client.delete(self._url(other_session.pk))
+        self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
+ 
+ 
+class MessageListCreateViewTest(APITestCase):
+ 
+    def setUp(self):
+        self.user = User.objects.create_user(username='alice', password='pass')
+        self.client = APIClient()
+        self.client.force_authenticate(user=self.user)
+        self.session = InterviewSession.objects.create(user=self.user, job_role='SRE')
+ 
+    def _url(self):
+        return f'/api/sessions/{self.session.pk}/messages/'
+ 
+    def test_create_message_saves_user_message(self):
+        response = self.client.post(self._url(), {'content': 'Tell me about yourself'})
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['role'], InterviewMessage.Role.USER)
+ 
+    def test_create_message_empty_content_returns_400(self):
+        response = self.client.post(self._url(), {'content': ''})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+ 
+    def test_create_message_missing_content_returns_400(self):
+        response = self.client.post(self._url(), {})
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+ 
+    def test_list_messages_only_from_own_session(self):
+        InterviewMessage.objects.create(session=self.session, role='user', content='hello')
+        response = self.client.get(self._url())
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertGreaterEqual(len(response.data), 1)
+ 
+    def test_cannot_post_to_another_users_session(self):
+        other_user = User.objects.create_user(username='bob', password='pass')
+        other_session = InterviewSession.objects.create(user=other_user, job_role='Analyst')
+        url = f'/api/interviews/{other_session.pk}/messages/'
+        response = self.client.post(url, {'content': 'sneaky message'})
+        self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
