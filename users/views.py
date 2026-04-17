@@ -105,6 +105,7 @@ class UserDetailView(generics.RetrieveAPIView):
 class CandidateProfileView(generics.RetrieveUpdateAPIView):
     serializer_class = CandidateProfileSerializer
     permission_classes = [IsAuthenticated]
+    parser_classes = [parsers.MultiPartParser, parsers.FormParser, parsers.JSONParser]
 
     def get_object(self):
         if self.request.user.role != User.Role.CANDIDATE:
@@ -117,6 +118,9 @@ class CandidateProfileView(generics.RetrieveUpdateAPIView):
     def update(self, request, *args, **kwargs):
         if request.user.role != User.Role.CANDIDATE:
             raise PermissionDenied('You are not a candidate.')
+        # Delete old CV if replacing
+        if 'cv' in request.FILES and request.user.candidate_profile.cv:
+            request.user.candidate_profile.cv.delete(save=False)
         return super().update(request, *args, **kwargs)
 
 # View for showing the profile of a candidate (via ID)
