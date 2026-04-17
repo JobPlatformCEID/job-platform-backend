@@ -1,13 +1,17 @@
-from rest_framework import status, generics, parsers
+from rest_framework import status, generics, parsers , viewsets
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.exceptions import NotFound, PermissionDenied
 from django.contrib.auth import authenticate
 from core.utils import compress_image
-from .serializers import RegisterSerializer, LoginSerializer, UserSerializer, CandidateProfileSerializer, EmployerProfileSerializer, EmployerListSerializer
-from .models import User, CandidateProfile, EmployerProfile
+from .models import User, CandidateProfile, EmployerProfile , Skill , Education , WorkExperience
 
+from .serializers import (
+    RegisterSerializer, LoginSerializer, UserSerializer, 
+    CandidateProfileSerializer, EmployerProfileSerializer, EmployerListSerializer,
+    SkillSerializer , WorkExperienceSerializer , EducationSerializer
+)
 # Register View: CreateAPIView provides a post method handler
 class RegisterView(generics.CreateAPIView):
     serializer_class = RegisterSerializer
@@ -159,3 +163,35 @@ class EmployerListView(generics.ListAPIView):
     serializer_class = EmployerListSerializer
     permission_classes = [IsAuthenticated]
     queryset = EmployerProfile.objects.all()
+
+class SkillViewSet(viewsets.ModelViewSet):
+    serializer_class = SkillSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Skill.objects.filter(candidate=self.request.user.candidate_profile)
+
+    def perform_create(self, serializer):
+        serializer.save(candidate=self.request.user.candidate_profile)
+
+
+class EducationViewSet(viewsets.ModelViewSet):
+    serializer_class = EducationSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Education.objects.filter(candidate=self.request.user.candidate_profile)
+
+    def perform_create(self, serializer):
+        serializer.save(candidate=self.request.user.candidate_profile)
+
+
+class WorkExperienceViewSet(viewsets.ModelViewSet):
+    serializer_class = WorkExperienceSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return WorkExperience.objects.filter(candidate=self.request.user.candidate_profile)
+
+    def perform_create(self, serializer):
+        serializer.save(candidate=self.request.user.candidate_profile)

@@ -53,18 +53,22 @@ class WorkExperienceSerializer(serializers.ModelSerializer):
     class Meta:
         model = WorkExperience
         fields = '__all__'
+        read_only_fields = ['candidate']
 
 class EducationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Education
         fields = '__all__'
+        read_only_fields = ['candidate']
 
 class SkillSerializer(serializers.ModelSerializer):
     class Meta:
         model = Skill
         fields = '__all__'
+        read_only_fields = ['candidate']
 
 class EmployerListSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
         fields = ['id', 'company_name', 'location', 'website']
+

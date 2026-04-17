@@ -70,4 +70,3 @@ class MessageListCreateView(generics.ListCreateAPIView):
         )
 
         return Response(MessageSerializer(user_msg).data, status=status.HTTP_201_CREATED)
-    
