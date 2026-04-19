@@ -6,11 +6,13 @@ from django.db import IntegrityError
 from rest_framework.exceptions import ValidationError
 from .models import JobPosting, JobApplication
 from .serializers import JobPostingSerializer, JobApplicationSerializer , JobApplicationStatusSerializer
+from .filters import JobPostingFilter, JobApplicationFilter
 from users.models import User
 
 class JobPostingListCreateView(generics.ListCreateAPIView):
     serializer_class = JobPostingSerializer
     permission_classes = [IsAuthenticated]
+    filterset_class = JobPostingFilter
 
     def get_queryset(self):
         return JobPosting.objects.filter(is_active=True)
@@ -57,6 +59,7 @@ class JobPostingDetailView(generics.RetrieveUpdateDestroyAPIView):
 class JobApplicationListView(generics.ListAPIView):
     serializer_class = JobApplicationSerializer
     permission_classes = [IsAuthenticated]
+    filterset_class = JobApplicationFilter
 
     def get_queryset(self):
         try:
