@@ -60,3 +60,4 @@ celery==5.4.0
 django-celery-results==2.5.1
 groq==0.13.0
 better-profanity==0.7.0
+django-filter==25.1
