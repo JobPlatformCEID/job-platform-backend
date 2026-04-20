@@ -261,9 +261,10 @@ class JobPostingFilterTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
         response = self.client.get('/api/jobs/', {'is_active': 'false'})
         self.assertEqual(response.status_code, 200)
-        # default queryset filters is_active=True, so even with is_active=false param,
-        # the base queryset restricts to active only
-        self.assertEqual(len(response.data), 0)
+        # employers see their own postings (including inactive), so filtering
+        # by is_active=false returns job3
+        self.assertEqual(len(response.data), 1)
+        self.assertEqual(response.data[0]['title'], 'Data Analyst')
 
     def test_combined_filters(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
@@ -280,6 +281,20 @@ class JobPostingFilterTests(TestCase):
         response = self.client.get('/api/jobs/', {'title': 'nonexistent'})
         self.assertEqual(response.status_code, 200)
         self.assertEqual(len(response.data), 0)
+
+    def test_employer_sees_all_own_postings_including_inactive(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
+        response = self.client.get('/api/jobs/')
+        self.assertEqual(response.status_code, 200)
+        # employer sees all 3 of their own postings (2 active + 1 inactive)
+        self.assertEqual(len(response.data), 3)
+
+    def test_candidate_only_sees_active_postings(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
+        response = self.client.get('/api/jobs/')
+        self.assertEqual(response.status_code, 200)
+        # candidate sees only 2 active postings
+        self.assertEqual(len(response.data), 2)
 
 
 class JobApplicationFilterTests(TestCase):
