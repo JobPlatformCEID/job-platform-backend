@@ -52,9 +52,10 @@ docker compose exec django python manage.py createsuperuser
 ### Users
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
+| GET | `/api/users/` | Search users by username, first name or last name (`?search=query`) | Token |
 | GET | `/api/users/me/` | Get current user info including avatar | Token |
 | PATCH | `/api/users/me/` | Update avatar, first name, last name, email | Token |
-| GET | `/api/users/<id>/` | Get public user info | Token |
+| GET | `/api/users/<id>/` | Get public user info for a specific user | Token |
 
 ### Candidates
 | Method | Endpoint | Description | Auth |
@@ -122,7 +123,7 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/api/conversations/<id>/messages/` | List all messages in a conversation | Token |
 | DELETE | `/api/conversations/<id>/messages/<message_id>/` | Delete a message (sender only) | Token |
 
-### Mock ai interviews
+### Mock AI Interviews
 | Event | Endpoint | Description | Auth |
 |-------|----------|-------------|------|
 | GET | `/sessions/` | List all user's interview sessions | Required |
@@ -130,7 +131,7 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/sessions/<id>/` | Get session details + all messages | Required |
 | DELETE | `/sessions/<id>/` | Delete a session | Required |
 
-### Calls
+### Calls (LiveKit)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | GET | `/api/calls/` | List all rooms | Token |
@@ -139,37 +140,6 @@ docker compose exec django python manage.py createsuperuser
 | PUT | `/api/calls/<id>/` | Update room (host only) | Token |
 | DELETE | `/api/calls/<id>/` | Delete room (host only) | Token |
 | POST | `/api/calls/<id>/token/` | Get LiveKit token to join | Token |
-
-### WebSocket
-| Event | Endpoint | Description | Auth |
-|-------|----------|-------------|------|
-| Connect | `ws://.../ws/conversations/<id>/?token=<token>` | Connect to a conversation | Token |
-| Send | `{"content": "..."}` | Send a message | - |
-| Receive (message) | `{"type": "message", "message_id": ..., "content": ..., "sender_id": ..., "sender_username": ..., "created_at": ...}` | Incoming message | - |
-| Receive (read) | `{"type": "read", "reader_id": ..., "reader_username": ...}` | Read receipt | - |
-| Connect | `ws://<host>:8000/ws/calls/<room_id>/?token=<token>` | Join a call room | Token |
-| Receive | `{"type": "user_joined", "username": ..., "users": [...]}` | User joined broadcast with user list | - |
-| Receive | `{"type": "user_left", "username": ..., "users": [...]}` | User left broadcast | - |
-| Send | `{"type": "offer", "target": "...", "offer": {...}}` | WebRTC offer | - |
-| Send | `{"type": "answer", "target": "...", "answer": {...}}` | WebRTC answer | - |
-| Send | `{"type": "ice_candidate", "target": "...", "candidate": {...}}` | ICE candidate | - |
-| Send | `{"type": "kick", "user_id": <id>}` | Host removes a user | Host Only |
-
-### Video Calls (WebRTC Signaling)
-The calls WebSocket supports WebRTC peer-to-peer video calling:
-
-1. Connect to room with token
-2. Wait for `user_joined` events to know who's in the room
-3. Initiate calls by sending `offer` to target users
-4. Handle incoming `offer` with `answer`
-5. Exchange `ice_candidate` for NAT traversal
-
-**Race condition prevention**: Only the user with alphabetically lower username initiates the call. this is still under work and will change in the future (its in the front end and the front end is still underdevelopment).
-
-**Custom Error Codes:**
-* `4001`: Authentication failed (No/Invalid Token)
-* `4003`: Meeting date is in the future / User was kicked
-* `4004`: Room is inactive (Host has not joined yet)
 
 REST APIs were tested with Postman.
 WebSocket connections were tested via https://websocketking.com
@@ -182,23 +152,6 @@ All protected APIs require a token in the request header:
 Authorization: Token <your-token>
 ```
 
-## Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `SECRET_KEY` | Django secret key (https://djecrety.ir/) |
-| `DEBUG` | Debug mode (True for development) |
-| `DB_NAME` | Database name (Default: jobplatform) |
-| `DB_USER` | Database username (Default: jobplatform) |
-| `DB_PASSWORD` | Database platform (Default: jobplatform) |
-| `MINIO_USER` | MinIO username (Default: jobplatform) |
-| `MINIO_PASSWORD` | MinIO password (Default: jobplatform) |
-| `MINIO_BUCKET` | MinIO bucket name (Default: jobplatform) |
-| `AI_BACKEND` | Decides if your gonna use local ai or groq api (Default: ollama)|
-| `OLLAMA_MODEL` | default ollama model |
-| `LLAMA_MODEL` | default llama model for amd | 
-
-
 ## Progress
 
 - Implemented most of use cases 1 and 2
@@ -209,3 +162,4 @@ Authorization: Token <your-token>
 - Added messaging with WebSocket connections and some tests in messaging/tests.py
 - Added support for deleting conversations and messages in messaging app
 - implemented a basic ui with ai mock interviews (need to improve system prompt)
+- Added livekit calls support and cleaned up README
