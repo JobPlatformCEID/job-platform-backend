@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
-from users.models import User, EmployerProfile , CandidateProfile, Education
+from users.models import User, EmployerProfile , CandidateProfile, Education, Skill
 from jobs.models import JobPosting
 
 class JobPostingsByTitleTest(TestCase):
@@ -48,3 +48,27 @@ class CandidatesByEducationLevelTest(TestCase):
         data = {item['level']: item['count'] for item in response.json()}
         self.assertEqual(data['bachelor'], 3)
         self.assertEqual(data['master'], 1)
+
+class TopSkillsTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        for i in range(5):
+            user = User.objects.create_user(username=f'dev{i}', password='pass', role='candidate')
+            profile = CandidateProfile.objects.create(user=user)
+            Skill.objects.create(candidate=profile, name='Python')
+            Skill.objects.create(candidate=profile, name='Django')
+
+        user = User.objects.create_user(username='rustdev', password='pass', role='candidate')
+        profile = CandidateProfile.objects.create(user=user)
+        Skill.objects.create(candidate=profile, name='Rust')
+
+    def test_returns_top_skills(self):
+        url = reverse('top-skills')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]['skill'], 'Python')
+        self.assertEqual(data[0]['count'], 5)
+        self.assertEqual(data[1]['skill'], 'Django')
+        self.assertLessEqual(len(data), 10)
