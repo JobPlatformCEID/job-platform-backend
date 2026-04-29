@@ -72,3 +72,41 @@ class TopSkillsTest(TestCase):
         self.assertEqual(data[0]['count'], 5)
         self.assertEqual(data[1]['skill'], 'Django')
         self.assertLessEqual(len(data), 10)
+class TopCompaniesByJobPostingsTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        for i in range(3):
+            user = User.objects.create_user(username=f'emp{i}', password='pass', role='employer')
+            employer = EmployerProfile.objects.create(user=user, company_name=f'Company{i}')
+            for j in range(i + 1):
+                JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc')
+
+    def test_returns_top_companies(self):
+        url = reverse('top-companies')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]['company'], 'Company2')
+        self.assertEqual(data[0]['count'], 3)
+        self.assertLessEqual(len(data), 10)
+
+class AvgSalaryByTitleTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        user = User.objects.create_user(username='emp', password='pass', role='employer')
+        self.employer = EmployerProfile.objects.create(user=user, company_name='Acme')
+
+        JobPosting.objects.create(employer=self.employer, title='Software Engineer', contract_type='full_time', description='desc', salary_min=3000, salary_max=5000)
+        JobPosting.objects.create(employer=self.employer, title='Software Engineer', contract_type='full_time', description='desc', salary_min=4000, salary_max=6000)
+        JobPosting.objects.create(employer=self.employer, title='Data Scientist', contract_type='full_time', description='desc', salary_min=5000, salary_max=8000)
+
+    def test_returns_avg_salary_by_title(self):
+        url = reverse('avg-salary-by-title')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = {item['title']: item for item in response.json()}
+        self.assertEqual(data['Software Engineer']['avg_min'], 3500.0)
+        self.assertEqual(data['Software Engineer']['avg_max'], 5500.0)
+        self.assertEqual(data['Data Scientist']['avg_min'], 5000.0)
