@@ -1,3 +1,29 @@
 from django.test import TestCase
+from django.urls import reverse
+from rest_framework.test import APIClient
+from users.models import User, EmployerProfile
+from jobs.models import JobPosting
 
-# Create your tests here.
+class JobPostingsByTitleTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        employer_user = User.objects.create_user(
+            username='employer1', password='pass', role='employer'
+        )
+        self.employer = EmployerProfile.objects.create(
+            user=employer_user, company_name='Acme'
+        )
+
+        JobPosting.objects.create(employer=self.employer, title='Software Engineer', contract_type='full_time', description='desc')
+        JobPosting.objects.create(employer=self.employer, title='Software Engineer', contract_type='full_time', description='desc')
+        JobPosting.objects.create(employer=self.employer, title='Data Scientist', contract_type='full_time', description='desc')
+
+    def test_returns_grouped_by_title(self):
+        url = reverse('jobs-by-title')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        titles = {item['title']: item['count'] for item in data}
+        self.assertEqual(titles['Software Engineer'], 2)
+        self.assertEqual(titles['Data Scientist'], 1)
