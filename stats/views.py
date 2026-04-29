@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Count , Avg , Case, When, IntegerField , Min, Max
-from django.db.models.functions import TruncDay
+from django.db.models.functions import TruncDay , Lower
 from jobs.models import JobPosting
 from users.models import Education, Skill
 import math
@@ -10,6 +10,7 @@ class JobPostingsByTitleView(APIView):
     def get(self, request):
         data = (
             JobPosting.objects
+            .annotate(title_lower=Lower('title'))
             .values('title')
             .annotate(count=Count('id'))
             .order_by('-count')
@@ -33,7 +34,7 @@ class TopSkillsView(APIView):
         qs = Skill.objects
         if title:
             qs = qs.filter(candidate__applications__job__title__icontains=title)
-        data = qs.values('name').annotate(count=Count('id')).order_by('-count')[:10]
+        data = qs.annotate(name_lower=Lower('name')).values('name').annotate(count=Count('id')).order_by('-count')[:10]
         return Response([{'skill': item['name'], 'count': item['count']} for item in data])
 
 
@@ -43,7 +44,7 @@ class TopCompaniesByJobPostingsView(APIView):
         qs = JobPosting.objects
         if title:
             qs = qs.filter(title__icontains=title)
-        data = qs.values('employer__company_name').annotate(count=Count('id')).order_by('-count')[:10]
+        data = qs.annotate(company_lower=Lower('employer__company_name')).values('employer__company_name').annotate(count=Count('id')).order_by('-count')[:10]
         return Response([{'company': item['employer__company_name'], 'count': item['count']} for item in data])
 
 
@@ -152,12 +153,12 @@ class SalaryRangeDistributionView(APIView):
 
         step = 1000
         start = (min_sal // step) * step
-        num_buckets = math.ceil((max_sal - start) / step)
+        num_buckets = max(1,math.ceil((max_sal - start) / step))
 
         while num_buckets > 5:
             step *= 2
             start = (min_sal // step) * step
-            num_buckets = math.ceil((max_sal - start) / step)
+            num_buckets = max(1,math.ceil((max_sal - start) / step))
 
         result = []
         current = start

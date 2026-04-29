@@ -258,3 +258,85 @@ class SalaryRangeDistributionTest(TestCase):
         response = self.client.get(reverse('salary-range-distribution'))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])
+
+class FilterByTitleTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        # employer
+        emp_user = User.objects.create_user(username='emp_filter', password='pass', role='employer')
+        self.employer1 = EmployerProfile.objects.create(user=emp_user, company_name='FilterCo')
+        emp_user2 = User.objects.create_user(username='emp_filter2', password='pass', role='employer')
+        self.employer2 = EmployerProfile.objects.create(user=emp_user2, company_name='OtherCo')
+
+        # two job titles
+        self.swe_job = JobPosting.objects.create(employer=self.employer1, title='Software Engineer', contract_type='full_time', description='desc', salary_min=4000, salary_max=6000, is_remote=True)
+        self.other_job = JobPosting.objects.create(employer=self.employer2, title='Accountant', contract_type='part_time', description='desc', salary_min=1000, salary_max=2000, is_remote=False)
+
+        # candidate who applied to swe_job
+        cand_user = User.objects.create_user(username='cand_filter', password='pass', role='candidate')
+        self.candidate = CandidateProfile.objects.create(user=cand_user)
+        Education.objects.create(candidate=self.candidate, institution='MIT', degree='CS', level='master')
+        Skill.objects.create(candidate=self.candidate, name='Python')
+        Skill.objects.create(candidate=self.candidate, name='Django')
+        JobApplication.objects.create(candidate=self.candidate, job=self.swe_job, status='pending')
+
+        # candidate who applied to other_job only
+        cand_user2 = User.objects.create_user(username='cand_filter2', password='pass', role='candidate')
+        self.candidate2 = CandidateProfile.objects.create(user=cand_user2)
+        Education.objects.create(candidate=self.candidate2, institution='Harvard', degree='Finance', level='bachelor')
+        Skill.objects.create(candidate=self.candidate2, name='Excel')
+        JobApplication.objects.create(candidate=self.candidate2, job=self.other_job, status='pending')
+
+    def test_candidates_by_education_filtered(self):
+        response = self.client.get(reverse('candidates-by-education'), {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        data = {item['level']: item['count'] for item in response.json()}
+        self.assertIn('master', data)
+        # accountant candidate should be excluded
+        self.assertNotIn('bachelor', data)
+
+    def test_top_skills_filtered(self):
+        response = self.client.get(reverse('top-skills'), {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        skills = [item['skill'] for item in response.json()]
+        self.assertIn('Python', skills)
+        self.assertIn('Django', skills)
+        # accountant candidate skill excluded
+        self.assertNotIn('Excel', skills)
+
+    def test_top_companies_filtered(self):
+        response = self.client.get(reverse('top-companies'), {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        companies = [item['company'] for item in response.json()]
+        self.assertIn('FilterCo', companies)
+        self.assertNotIn('OtherCo', companies)
+
+    def test_remote_vs_onsite_filtered(self):
+        response = self.client.get(reverse('remote-vs-onsite'), {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        data = {item['type']: item['count'] for item in response.json()}
+        self.assertIn('Remote', data)
+        self.assertNotIn('On-site', data)
+
+    def test_jobs_by_contract_type_filtered(self):
+        response = self.client.get(reverse('jobs-by-contract-type'), {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        data = {item['contract_type']: item['count'] for item in response.json()}
+        self.assertIn('full_time', data)
+        self.assertNotIn('part_time', data)
+
+    def test_avg_salary_by_contract_type_filtered(self):
+        response = self.client.get(reverse('avg-salary-by-contract-type'), {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        data = {item['contract_type']: item for item in response.json()}
+        self.assertIn('full_time', data)
+        self.assertNotIn('part_time', data)
+        self.assertEqual(data['full_time']['avg_min'], 4000.0)
+
+    def test_salary_range_distribution_filtered(self):
+        response = self.client.get(reverse('salary-range-distribution'), {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        total = sum(item['count'] for item in response.json())
+        # only the swe job
+        self.assertEqual(total, 1)
