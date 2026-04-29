@@ -2,7 +2,7 @@ from django.test import TestCase
 from django.urls import reverse
 from rest_framework.test import APIClient
 from users.models import User, EmployerProfile , CandidateProfile, Education, Skill
-from jobs.models import JobPosting
+from jobs.models import JobPosting , JobApplication
 from django.utils import timezone
 from datetime import timedelta
 
@@ -151,3 +151,110 @@ class JobPostingsOverTimeTest(TestCase):
         response = self.client.get(url, {'title': 'software engineer'})
         self.assertEqual(response.status_code, 200)
         self.assertGreater(len(response.json()), 0)
+
+class RemoteVsOnsiteTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        user = User.objects.create_user(username='emp_remote', password='pass', role='employer')
+        employer = EmployerProfile.objects.create(user=user, company_name='RemoteCo')
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc', is_remote=True)
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc', is_remote=True)
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc', is_remote=False)
+
+    def test_remote_vs_onsite(self):
+        response = self.client.get(reverse('remote-vs-onsite'))
+        self.assertEqual(response.status_code, 200)
+        data = {item['type']: item['count'] for item in response.json()}
+        self.assertEqual(data['Remote'], 2)
+        self.assertEqual(data['On-site'], 1)
+
+
+class JobsByContractTypeTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        user = User.objects.create_user(username='emp_contract', password='pass', role='employer')
+        employer = EmployerProfile.objects.create(user=user, company_name='ContractCo')
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc')
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc')
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='internship', description='desc')
+
+    def test_jobs_by_contract_type(self):
+        response = self.client.get(reverse('jobs-by-contract-type'))
+        self.assertEqual(response.status_code, 200)
+        data = {item['contract_type']: item['count'] for item in response.json()}
+        self.assertEqual(data['full_time'], 2)
+        self.assertEqual(data['internship'], 1)
+
+
+class AvgSalaryByContractTypeTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        user = User.objects.create_user(username='emp_sal_contract', password='pass', role='employer')
+        employer = EmployerProfile.objects.create(user=user, company_name='SalaryCo')
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc', salary_min=3000, salary_max=5000)
+        JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc', salary_min=4000, salary_max=6000)
+        JobPosting.objects.create(employer=employer, title='Intern', contract_type='internship', description='desc', salary_min=500, salary_max=1000)
+
+    def test_avg_salary_by_contract_type(self):
+        response = self.client.get(reverse('avg-salary-by-contract-type'))
+        self.assertEqual(response.status_code, 200)
+        data = {item['contract_type']: item for item in response.json()}
+        self.assertEqual(data['full_time']['avg_min'], 3500.0)
+        self.assertEqual(data['full_time']['avg_max'], 5500.0)
+
+
+class MostCompetitiveJobsTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        emp_user = User.objects.create_user(username='emp_competitive', password='pass', role='employer')
+        employer = EmployerProfile.objects.create(user=emp_user, company_name='CompetitiveCo')
+        self.job1 = JobPosting.objects.create(employer=employer, title='Hot Job', contract_type='full_time', description='desc')
+        self.job2 = JobPosting.objects.create(employer=employer, title='Cold Job', contract_type='full_time', description='desc')
+
+        for i in range(5):
+            cand_user = User.objects.create_user(username=f'cand_comp{i}', password='pass', role='candidate')
+            candidate = CandidateProfile.objects.create(user=cand_user)
+            JobApplication.objects.create(candidate=candidate, job=self.job1, status='pending')
+
+        cand_user = User.objects.create_user(username='cand_cold', password='pass', role='candidate')
+        candidate = CandidateProfile.objects.create(user=cand_user)
+        JobApplication.objects.create(candidate=candidate, job=self.job2, status='pending')
+
+    def test_most_competitive_jobs(self):
+        response = self.client.get(reverse('most-competitive-jobs'))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertEqual(data[0]['title'], 'Hot Job')
+        self.assertEqual(data[0]['applications'], 5)
+
+
+class SalaryRangeDistributionTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+        user = User.objects.create_user(username='emp_hist', password='pass', role='employer')
+        employer = EmployerProfile.objects.create(user=user, company_name='HistCo')
+
+        # spread salaries to force dynamic bucketing
+        for salary in [500, 1500, 3500, 6000, 9000, 15000, 30000]:
+            JobPosting.objects.create(
+                employer=employer, title='Dev',
+                contract_type='full_time', description='desc',
+                salary_min=salary
+            )
+
+    def test_returns_5_or_fewer_buckets(self):
+        response = self.client.get(reverse('salary-range-distribution'))
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertLessEqual(len(data), 5)
+
+    def test_all_jobs_accounted_for(self):
+        response = self.client.get(reverse('salary-range-distribution'))
+        total = sum(item['count'] for item in response.json())
+        self.assertEqual(total, 7)
+
+    def test_empty_when_no_salaries(self):
+        JobPosting.objects.all().delete()
+        response = self.client.get(reverse('salary-range-distribution'))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json(), [])
