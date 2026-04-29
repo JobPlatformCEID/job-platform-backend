@@ -3,6 +3,8 @@ from django.urls import reverse
 from rest_framework.test import APIClient
 from users.models import User, EmployerProfile , CandidateProfile, Education, Skill
 from jobs.models import JobPosting
+from django.utils import timezone
+from datetime import timedelta
 
 class JobPostingsByTitleTest(TestCase):
     def setUp(self):
@@ -110,3 +112,42 @@ class AvgSalaryByTitleTest(TestCase):
         self.assertEqual(data['Software Engineer']['avg_min'], 3500.0)
         self.assertEqual(data['Software Engineer']['avg_max'], 5500.0)
         self.assertEqual(data['Data Scientist']['avg_min'], 5000.0)
+
+class JobPostingsOverTimeTest(TestCase):
+    def setUp(self):
+        self.client = APIClient()
+
+        user = User.objects.create_user(username='emp_time', password='pass', role='employer')
+        self.employer = EmployerProfile.objects.create(user=user, company_name='TimeCo')
+
+        today = timezone.now()
+        yesterday = today - timedelta(days=1)
+
+        j1 = JobPosting.objects.create(employer=self.employer, title='Software Engineer', contract_type='full_time', description='desc')
+        j2 = JobPosting.objects.create(employer=self.employer, title='Software Engineer', contract_type='full_time', description='desc')
+        j3 = JobPosting.objects.create(employer=self.employer, title='Software Engineer', contract_type='full_time', description='desc')
+
+        # Force created_at to yesterday for j1
+        JobPosting.objects.filter(pk=j1.pk).update(created_at=yesterday)
+
+    def test_requires_title_param(self):
+        url = reverse('jobs-over-time')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 400)
+
+    def test_returns_postings_over_time(self):
+        url = reverse('jobs-over-time')
+        response = self.client.get(url, {'title': 'Software Engineer'})
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        # should have 2 dates: yesterday (1 posting) and today (2 postings)
+        self.assertEqual(len(data), 2)
+        counts = [item['count'] for item in data]
+        self.assertIn(1, counts)
+        self.assertIn(2, counts)
+
+    def test_case_insensitive_filter(self):
+        url = reverse('jobs-over-time')
+        response = self.client.get(url, {'title': 'software engineer'})
+        self.assertEqual(response.status_code, 200)
+        self.assertGreater(len(response.json()), 0)

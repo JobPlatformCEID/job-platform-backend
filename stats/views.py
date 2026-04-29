@@ -1,6 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from django.db.models import Count , Avg
+from django.db.models.functions import TruncDay
 from jobs.models import JobPosting
 from users.models import Education, Skill
 
@@ -65,4 +66,21 @@ class AvgSalaryByTitleView(APIView):
             }
             for item in data
         ]
+        return Response(result)
+
+class JobPostingsOverTimeView(APIView):
+    def get(self, request):
+        title = request.query_params.get('title')
+        if not title:
+            return Response({'error': 'title query parameter is required'}, status=400)
+        
+        data = (
+            JobPosting.objects
+            .filter(title__icontains=title)
+            .annotate(date=TruncDay('created_at'))
+            .values('date')
+            .annotate(count=Count('id'))
+            .order_by('date')
+        )
+        result = [{'date': item['date'].strftime('%Y-%m-%d'), 'count': item['count']} for item in data]
         return Response(result)

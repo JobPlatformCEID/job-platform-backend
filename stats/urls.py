@@ -7,4 +7,5 @@ urlpatterns = [
     path('top-skills/', views.TopSkillsView.as_view(), name='top-skills'),
     path('top-companies/', views.TopCompaniesByJobPostingsView.as_view(), name='top-companies'),
     path('avg-salary-by-title/', views.AvgSalaryByTitleView.as_view(), name='avg-salary-by-title'),
+    path('jobs-over-time/', views.JobPostingsOverTimeView.as_view(), name='jobs-over-time'),
 ]
