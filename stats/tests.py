@@ -6,10 +6,17 @@ from jobs.models import JobPosting , JobApplication
 from django.utils import timezone
 from datetime import timedelta
 
-class JobPostingsByTitleTest(TestCase):
+class AuthenticatedStatsTest(TestCase):
     def setUp(self):
         self.client = APIClient()
+        self.test_user = User.objects.create_user(
+            username='test_stats_user', password='testpass123', role='employer'
+        )
+        self.client.force_authenticate(user=self.test_user)
 
+class JobPostingsByTitleTest(AuthenticatedStatsTest):
+    def setUp(self):
+        super().setUp()
         employer_user = User.objects.create_user(
             username='employer1', password='pass', role='employer'
         )
@@ -30,10 +37,9 @@ class JobPostingsByTitleTest(TestCase):
         self.assertEqual(titles['Software Engineer'], 2)
         self.assertEqual(titles['Data Scientist'], 1)
 
-class CandidatesByEducationLevelTest(TestCase):
+class CandidatesByEducationLevelTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
-
+        super().setUp()
         for i in range(3):
             user = User.objects.create_user(username=f'candidate{i}', password='pass', role='candidate')
             profile = CandidateProfile.objects.create(user=user)
@@ -51,10 +57,9 @@ class CandidatesByEducationLevelTest(TestCase):
         self.assertEqual(data['bachelor'], 3)
         self.assertEqual(data['master'], 1)
 
-class TopSkillsTest(TestCase):
+class TopSkillsTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
-
+        super().setUp()
         for i in range(5):
             user = User.objects.create_user(username=f'dev{i}', password='pass', role='candidate')
             profile = CandidateProfile.objects.create(user=user)
@@ -74,10 +79,10 @@ class TopSkillsTest(TestCase):
         self.assertEqual(data[0]['count'], 5)
         self.assertEqual(data[1]['skill'], 'Django')
         self.assertLessEqual(len(data), 10)
-class TopCompaniesByJobPostingsTest(TestCase):
-    def setUp(self):
-        self.client = APIClient()
 
+class TopCompaniesByJobPostingsTest(AuthenticatedStatsTest):
+    def setUp(self):
+        super().setUp()
         for i in range(3):
             user = User.objects.create_user(username=f'emp{i}', password='pass', role='employer')
             employer = EmployerProfile.objects.create(user=user, company_name=f'Company{i}')
@@ -93,10 +98,9 @@ class TopCompaniesByJobPostingsTest(TestCase):
         self.assertEqual(data[0]['count'], 3)
         self.assertLessEqual(len(data), 10)
 
-class AvgSalaryByTitleTest(TestCase):
+class AvgSalaryByTitleTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
-
+        super().setUp()
         user = User.objects.create_user(username='emp', password='pass', role='employer')
         self.employer = EmployerProfile.objects.create(user=user, company_name='Acme')
 
@@ -113,10 +117,9 @@ class AvgSalaryByTitleTest(TestCase):
         self.assertEqual(data['Software Engineer']['avg_max'], 5500.0)
         self.assertEqual(data['Data Scientist']['avg_min'], 5000.0)
 
-class JobPostingsOverTimeTest(TestCase):
+class JobPostingsOverTimeTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
-
+        super().setUp()
         user = User.objects.create_user(username='emp_time', password='pass', role='employer')
         self.employer = EmployerProfile.objects.create(user=user, company_name='TimeCo')
 
@@ -152,9 +155,9 @@ class JobPostingsOverTimeTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertGreater(len(response.json()), 0)
 
-class RemoteVsOnsiteTest(TestCase):
+class RemoteVsOnsiteTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
+        super().setUp()
         user = User.objects.create_user(username='emp_remote', password='pass', role='employer')
         employer = EmployerProfile.objects.create(user=user, company_name='RemoteCo')
         JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc', is_remote=True)
@@ -169,9 +172,9 @@ class RemoteVsOnsiteTest(TestCase):
         self.assertEqual(data['On-site'], 1)
 
 
-class JobsByContractTypeTest(TestCase):
+class JobsByContractTypeTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
+        super().setUp()
         user = User.objects.create_user(username='emp_contract', password='pass', role='employer')
         employer = EmployerProfile.objects.create(user=user, company_name='ContractCo')
         JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc')
@@ -186,9 +189,9 @@ class JobsByContractTypeTest(TestCase):
         self.assertEqual(data['internship'], 1)
 
 
-class AvgSalaryByContractTypeTest(TestCase):
+class AvgSalaryByContractTypeTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
+        super().setUp()
         user = User.objects.create_user(username='emp_sal_contract', password='pass', role='employer')
         employer = EmployerProfile.objects.create(user=user, company_name='SalaryCo')
         JobPosting.objects.create(employer=employer, title='Dev', contract_type='full_time', description='desc', salary_min=3000, salary_max=5000)
@@ -203,9 +206,9 @@ class AvgSalaryByContractTypeTest(TestCase):
         self.assertEqual(data['full_time']['avg_max'], 5500.0)
 
 
-class MostCompetitiveJobsTest(TestCase):
+class MostCompetitiveJobsTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
+        super().setUp()
         emp_user = User.objects.create_user(username='emp_competitive', password='pass', role='employer')
         employer = EmployerProfile.objects.create(user=emp_user, company_name='CompetitiveCo')
         self.job1 = JobPosting.objects.create(employer=employer, title='Hot Job', contract_type='full_time', description='desc')
@@ -228,9 +231,9 @@ class MostCompetitiveJobsTest(TestCase):
         self.assertEqual(data[0]['applications'], 5)
 
 
-class SalaryRangeDistributionTest(TestCase):
+class SalaryRangeDistributionTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
+        super().setUp()
         user = User.objects.create_user(username='emp_hist', password='pass', role='employer')
         employer = EmployerProfile.objects.create(user=user, company_name='HistCo')
 
@@ -259,10 +262,9 @@ class SalaryRangeDistributionTest(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json(), [])
 
-class FilterByTitleTest(TestCase):
+class FilterByTitleTest(AuthenticatedStatsTest):
     def setUp(self):
-        self.client = APIClient()
-
+        super().setUp()
         # employer
         emp_user = User.objects.create_user(username='emp_filter', password='pass', role='employer')
         self.employer1 = EmployerProfile.objects.create(user=emp_user, company_name='FilterCo')
