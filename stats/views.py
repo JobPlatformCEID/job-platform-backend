@@ -5,8 +5,10 @@ from django.db.models.functions import TruncDay , Lower
 from jobs.models import JobPosting
 from users.models import Education, Skill
 import math
+from rest_framework.permissions import IsAuthenticated
 
 class JobPostingsByTitleView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         data = (
             JobPosting.objects
@@ -19,6 +21,7 @@ class JobPostingsByTitleView(APIView):
         return Response(result)
 
 class CandidatesByEducationLevelView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         qs = Education.objects
@@ -29,6 +32,7 @@ class CandidatesByEducationLevelView(APIView):
 
 
 class TopSkillsView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         qs = Skill.objects
@@ -39,6 +43,7 @@ class TopSkillsView(APIView):
 
 
 class TopCompaniesByJobPostingsView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         qs = JobPosting.objects
@@ -49,6 +54,7 @@ class TopCompaniesByJobPostingsView(APIView):
 
 
 class AvgSalaryByTitleView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         data = (
             JobPosting.objects
@@ -68,6 +74,7 @@ class AvgSalaryByTitleView(APIView):
         return Response(result)
 
 class JobPostingsOverTimeView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         if not title:
@@ -85,6 +92,7 @@ class JobPostingsOverTimeView(APIView):
         return Response(result)
 
 class RemoteVsOnsiteView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         qs = JobPosting.objects
@@ -94,6 +102,7 @@ class RemoteVsOnsiteView(APIView):
         return Response([{'type': 'Remote' if item['is_remote'] else 'On-site', 'count': item['count']} for item in data])
 
 class JobsByContractTypeView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         qs = JobPosting.objects
@@ -104,6 +113,7 @@ class JobsByContractTypeView(APIView):
 
 
 class AvgSalaryByContractTypeView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         qs = JobPosting.objects.exclude(salary_min=None, salary_max=None)
@@ -120,6 +130,7 @@ class AvgSalaryByContractTypeView(APIView):
         ])
 
 class MostCompetitiveJobsView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         data = (
             JobPosting.objects
@@ -138,6 +149,7 @@ class MostCompetitiveJobsView(APIView):
         return Response(result)
 
 class SalaryRangeDistributionView(APIView):
+    permission_classes = [IsAuthenticated]
     def get(self, request):
         title = request.query_params.get('title')
         qs = JobPosting.objects.exclude(salary_min=None)
