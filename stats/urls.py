@@ -1,5 +1,6 @@
 from django.urls import path
+from . import views
 
 urlpatterns = [
-    # placeholder
+    path('jobs-by-title/', views.JobPostingsByTitleView.as_view(), name='jobs-by-title'),
 ]
