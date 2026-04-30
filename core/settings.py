@@ -53,7 +53,8 @@ INSTALLED_APPS = [
     'social.apps.SocialConfig',
     'messaging.apps.MessagingConfig',
     'calls.apps.CallsConfig',
-    'ai_interviews.apps.AiInterviewsConfig'
+    'ai_interviews.apps.AiInterviewsConfig',
+    'stats.apps.StatsConfig'
 ]
 
 MIDDLEWARE = [

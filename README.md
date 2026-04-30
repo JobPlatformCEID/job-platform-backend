@@ -123,6 +123,21 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/api/conversations/<id>/messages/` | List all messages in a conversation | Token |
 | DELETE | `/api/conversations/<id>/messages/<message_id>/` | Delete a message (sender only) | Token |
 
+### Stats
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/stats/salary-range-distribution/` | Salary bracket distribution with dynamic bucket sizing (supports filtering by title) | Token |
+| GET | `/api/stats/jobs-by-title/` | List job postings grouped by title | Token |
+| GET | `/api/stats/candidates-by-education/` | Candidate counts grouped by education level (supports filtering by title) | Token |
+| GET | `/api/stats/top-skills/` | Top 10 most in-demand skills (supports filtering by title) | Token |
+| GET | `/api/stats/top-companies/` | Top 10 companies by number of job postings (supports filtering by title) | Token |
+| GET | `/api/stats/avg-salary-by-title/` | Average min/max salary ranges grouped by job title | Token |
+| GET | `/api/stats/jobs-over-time/` | Daily job posting counts over time (supports filtering by title) | Token |
+| GET | `/api/stats/remote-vs-onsite/` | Distribution of remote vs on-site positions (supports filtering by title) | Token |
+| GET | `/api/stats/jobs-by-contract-type/` | Job counts grouped by contract type (supports filtering by title) | Token |
+| GET | `/api/stats/avg-salary-by-contract-type/` | Average min/max salary ranges grouped by contract type (supports filtering by title) | Token |
+| GET | `/api/stats/most-competitive-jobs/` | Top 10 jobs ranked by application count | Token |
+
 ### Mock AI Interviews
 | Event | Endpoint | Description | Auth |
 |-------|----------|-------------|------|
