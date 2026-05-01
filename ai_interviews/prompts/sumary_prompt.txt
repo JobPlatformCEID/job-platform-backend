@@ -1,8 +1,9 @@
-Based on the interview so far, provide a brief structured summary in Greek with the following sections:
+Βάσει της συνέντευξης που έχει γίνει μέχρι τώρα για τη θέση **{job_role}**, δώσε μια σύντομη δομημένη εσωτερική αξιολόγηση στα Ελληνικά με τις παρακάτω ενότητες:
 
-1. ΓΕΝΙΚΗ ΕΝΤΥΠΩΣΗ: A brief overall impression of the candidate so far.
-2. ΔΥΝΑΤΑ ΣΗΜΕΙΑ: The candidate's key strengths demonstrated in the interview.
-3. ΚΡΙΣΙΜΑ ΛΑΘΗ: Critical mistakes or gaps the candidate has shown.
-4. ΕΠΟΜΕΝΑ ΒΗΜΑΤΑ: What the interviewer should focus on next in the interview.
+1. **ΓΕΝΙΚΗ ΕΝΤΥΠΩΣΗ**: Συνολική εντύπωση του υποψηφίου μέχρι στιγμής (2-3 προτάσεις).
+2. **ΔΥΝΑΤΑ ΣΗΜΕΙΑ**: Τα βασικά δυνατά σημεία που έδειξε ο υποψήφιος (συγκεκριμένα παραδείγματα από τη συνομιλία).
+3. **ΚΡΙΣΙΜΑ ΚΕΝΑ**: Τα σημαντικότερα κενά ή λάθη που εντοπίστηκαν (συγκεκριμένα, όχι γενικόλογα).
+4. **ΕΠΙΠΕΔΟ ΥΠΟΨΗΦΙΟΥ**: Εκτίμησε το επίπεδο εμπειρίας (Junior / Mid / Senior) με βάση τις απαντήσεις.
+5. **ΕΠΟΜΕΝΑ ΒΗΜΑΤΑ**: Σε ποιο τομέα πρέπει να εμβαθύνει η συνέντευξη στη συνέχεια και γιατί.
 
-Keep it concise — this is an internal note, not feedback to the candidate.
+Κράτα το σύντομο και σαφές — αυτό είναι εσωτερική σημείωση για τον interviewer, όχι feedback προς τον υποψήφιο.

@@ -3,25 +3,26 @@ from django.conf import settings
 from pathlib import Path
 from groq import Groq
 import logging
+from google import genai
 
-# Prompts directory
 PROMPTS_DIR = Path(__file__).parent / 'prompts'
 
 def _read_prompt(filename):
     return (PROMPTS_DIR / filename).read_text(encoding='utf-8').strip()
 
-# --- SUMMARY TRIGGER ---
-SUMMARY_THRESHOLD = 16  # change this to trigger summary at different message counts
+SUMMARY_THRESHOLD = 16
 
-# --- SYSTEM PROMPTS ---
 SYSTEM_PROMPT = _read_prompt('system_prompt.txt')
 OPENING_PROMPT = _read_prompt('opening_prompt.txt')
 SUMMARY_PROMPT = _read_prompt('sumary_prompt.txt')
 
 logger = logging.getLogger(__name__)
 
+def _inject_vars(prompt: str, session) -> str:
+    return prompt.format(job_role=session.job_role)
+
 def get_system_prompt(session):
-    return SYSTEM_PROMPT + f"\n\nJOB ROLE: The candidate is interviewing for the position: {session.job_role}. Tailor your questions accordingly."
+    return _inject_vars(SYSTEM_PROMPT, session)
 
 def build_messages(session, history):
     messages = [{"role": "system", "content": get_system_prompt(session)}]
@@ -29,41 +30,73 @@ def build_messages(session, history):
     return messages
 
 
-def get_ai_response(session, history):
-    messages = build_messages(session, history)
+def _route(messages):
     if settings.AI_BACKEND == "groq":
         return _groq_response(messages)
+    elif settings.AI_BACKEND == "gemini":
+        return _gemini_response(messages)
     return _ollama_response(messages)
+
+
+def get_ai_response(session, history):
+    return _route(build_messages(session, history))
 
 
 def get_opening_message(session):
     messages = [
         {"role": "system", "content": get_system_prompt(session)},
-        {"role": "user", "content": OPENING_PROMPT},
+        {"role": "user", "content": _inject_vars(OPENING_PROMPT, session)},
     ]
-    if settings.AI_BACKEND == "groq":
-        return _groq_response(messages)
-    return _ollama_response(messages)
+    return _route(messages)
 
 
 def summarize_history(session, history):
     messages = [
         {"role": "system", "content": get_system_prompt(session)},
         *history,
-        {"role": "user", "content": SUMMARY_PROMPT},
+        {"role": "user", "content": _inject_vars(SUMMARY_PROMPT, session)},
     ]
-    if settings.AI_BACKEND == "groq":
-        return _groq_response(messages)
-    return _ollama_response(messages)
+    return _route(messages)
+
 
 def _groq_response(messages):
     logger.info(f"Using Groq model: {settings.AI_GROQ_MODEL}")
     client = Groq(api_key=settings.GROQ_API_KEY)
     response = client.chat.completions.create(
         model=settings.AI_GROQ_MODEL,
-        messages=messages
+        messages=messages,
+        temperature=0.4,
     )
     return response.choices[0].message.content
+
+
+def _gemini_response(messages):
+    logger.info(f"Using Gemini model: {settings.AI_GEMINI_MODEL}")
+    client = genai.Client(api_key=settings.GEMINI_API_KEY)
+
+    # Extract system prompt and conversation separately
+    system_prompt = next(
+        (m["content"] for m in messages if m["role"] == "system"), None
+    )
+    conversation = [m for m in messages if m["role"] != "system"]
+
+    # Convert to Gemini format
+    gemini_contents = [
+        {"role": "model" if m["role"] == "assistant" else "user",
+         "parts": [{"text": m["content"]}]}
+        for m in conversation
+    ]
+
+    response = client.models.generate_content(
+        model=settings.AI_GEMINI_MODEL,
+        contents=gemini_contents,
+        config={
+            "system_instruction": system_prompt,
+            "temperature": 0.4,
+        }
+    )
+    return response.text
+
 
 def _ollama_response(messages):
     logger.info(f"Using local model: {settings.AI_LOCAL_MODEL}")
