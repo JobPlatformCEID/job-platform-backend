@@ -1,3 +1,4 @@
+from itertools import count
 from unittest.mock import patch, MagicMock, AsyncMock
 from django.test import TestCase
 from django.contrib.auth import get_user_model
@@ -18,26 +19,45 @@ from .services import (
     get_system_prompt, build_messages, get_ai_response,
     get_opening_message, summarize_history, SUMMARY_THRESHOLD,
 )
+from jobs.models import JobPosting
+from users.models import EmployerProfile
  
 User = get_user_model()
+_employer_counter = count()
+
+
+def create_test_job(title='Backend Engineer', description='Build backend systems.', requirements='Python, Django'):
+    employer_user = User.objects.create_user(
+        username=f'employer_{next(_employer_counter)}',
+        password='pass',
+        role=User.Role.EMPLOYER,
+    )
+    employer = EmployerProfile.objects.create(user=employer_user, company_name='Test Company')
+    return JobPosting.objects.create(
+        employer=employer,
+        title=title,
+        description=description,
+        requirements=requirements,
+        contract_type='full_time',
+    )
 
 class InterviewSessionModelTest(TestCase):
  
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='pass')
-        self.session = InterviewSession.objects.create(user=self.user, job_role='QA Engineer')
+        self.session = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('QA Engineer'))
 
     def test_session_str(self):
-        session = InterviewSession.objects.create(user=self.user, job_role='Backend Engineer')
+        session = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('Backend Engineer'))
         self.assertIn('Backend Engineer', str(session))
  
     def test_session_default_title(self):
-        session = InterviewSession.objects.create(user=self.user, job_role='Designer')
+        session = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('Designer'))
         self.assertEqual(session.title, '')
  
     def test_session_ordering_newest_first(self):
-        s1 = InterviewSession.objects.create(user=self.user, job_role='Role A')
-        s2 = InterviewSession.objects.create(user=self.user, job_role='Role B')
+        s1 = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('Role A'))
+        s2 = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('Role B'))
         sessions = list(InterviewSession.objects.filter(user=self.user))
         self.assertEqual(sessions[0], s2)
         self.assertEqual(sessions[1], s1)
@@ -78,7 +98,9 @@ class InterviewSessionListCreateViewTest(APITestCase):
         self.url = '/api/sessions/'
  
     def test_create_session_creates_opening_message(self):
-        response = self.client.post(self.url, {'job_role': 'Data Scientist', 'title': 'Test'})
+        job = create_test_job('Data Scientist')
+        with patch('ai_interviews.views.get_opening_message', return_value='Opening question'):
+            response = self.client.post(self.url, {'job_posting_id': job.id, 'title': 'Test'})
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         session_id = response.data['id']
         msgs = InterviewMessage.objects.filter(session_id=session_id)
@@ -86,8 +108,8 @@ class InterviewSessionListCreateViewTest(APITestCase):
         self.assertEqual(msgs.first().role, InterviewMessage.Role.Assistant)
  
     def test_list_returns_only_own_sessions(self):
-        InterviewSession.objects.create(user=self.user, job_role='Dev')
-        InterviewSession.objects.create(user=self.other_user, job_role='Manager')
+        InterviewSession.objects.create(user=self.user, job_posting=create_test_job('Dev'))
+        InterviewSession.objects.create(user=self.other_user, job_posting=create_test_job('Manager'))
         response = self.client.get(self.url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data), 1)
@@ -105,7 +127,7 @@ class InterviewSessionDetailViewTest(APITestCase):
         self.other_user = User.objects.create_user(username='bob', password='pass')
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
-        self.session = InterviewSession.objects.create(user=self.user, job_role='DevOps')
+        self.session = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('DevOps'))
  
     def _url(self, pk):
         return f'/api/sessions/{pk}/'
@@ -115,7 +137,7 @@ class InterviewSessionDetailViewTest(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
  
     def test_cannot_retrieve_other_users_session(self):
-        other_session = InterviewSession.objects.create(user=self.other_user, job_role='PM')
+        other_session = InterviewSession.objects.create(user=self.other_user, job_posting=create_test_job('PM'))
         response = self.client.get(self._url(other_session.pk))
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
  
@@ -125,7 +147,7 @@ class InterviewSessionDetailViewTest(APITestCase):
         self.assertFalse(InterviewSession.objects.filter(pk=self.session.pk).exists())
  
     def test_cannot_delete_other_users_session(self):
-        other_session = InterviewSession.objects.create(user=self.other_user, job_role='PM')
+        other_session = InterviewSession.objects.create(user=self.other_user, job_posting=create_test_job('PM'))
         response = self.client.delete(self._url(other_session.pk))
         self.assertIn(response.status_code, [status.HTTP_403_FORBIDDEN, status.HTTP_404_NOT_FOUND])
  
@@ -136,7 +158,7 @@ class MessageListCreateViewTest(APITestCase):
         self.user = User.objects.create_user(username='alice', password='pass')
         self.client = APIClient()
         self.client.force_authenticate(user=self.user)
-        self.session = InterviewSession.objects.create(user=self.user, job_role='SRE')
+        self.session = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('SRE'))
  
     def _url(self):
         return f'/api/sessions/{self.session.pk}/messages/'
@@ -162,7 +184,7 @@ class MessageListCreateViewTest(APITestCase):
  
     def test_cannot_post_to_another_users_session(self):
         other_user = User.objects.create_user(username='bob', password='pass')
-        other_session = InterviewSession.objects.create(user=other_user, job_role='Analyst')
+        other_session = InterviewSession.objects.create(user=other_user, job_posting=create_test_job('Analyst'))
         url = f'/api/interviews/{other_session.pk}/messages/'
         response = self.client.post(url, {'content': 'sneaky message'})
         self.assertEqual(response.status_code, status.HTTP_404_NOT_FOUND)
@@ -171,7 +193,7 @@ class RedisTests(TestCase):
  
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='pass')
-        self.session = InterviewSession.objects.create(user=self.user, job_role='ML Engineer')
+        self.session = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('ML Engineer'))
         cache.clear()
  
     def tearDown(self):
@@ -286,11 +308,19 @@ class ServicesTest(TestCase):
  
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='pass')
-        self.session = InterviewSession.objects.create(user=self.user, job_role='Cloud Architect')
+        self.session = InterviewSession.objects.create(
+            user=self.user,
+            job_posting=create_test_job(
+                'Cloud Architect',
+                description='Design and operate cloud infrastructure.',
+                requirements='AWS, Terraform, distributed systems',
+            ),
+        )
  
-    def test_get_system_prompt_includes_job_role(self):
+    def test_get_system_prompt_includes_job_posting_context(self):
         prompt = get_system_prompt(self.session)
         self.assertIn('Cloud Architect', prompt)
+        self.assertIn('AWS, Terraform, distributed systems', prompt)
  
     def test_build_messages_starts_with_system(self):
         history = [{'role': 'user', 'content': 'hello'}]
@@ -344,7 +374,7 @@ class ServicesTest(TestCase):
 class InterviewConsumerTest(TestCase):
     def setUp(self):
         self.user = User.objects.create_user(username='wsuser', password='pass')
-        self.session = InterviewSession.objects.create(user=self.user, job_role='iOS Dev')
+        self.session = InterviewSession.objects.create(user=self.user, job_posting=create_test_job('iOS Dev'))
  
     async def _make_communicator(self, session_id=None, user=None):
         from .consumers import InterviewConsumer

@@ -14,12 +14,27 @@ SUMMARY_THRESHOLD = 16
 
 SYSTEM_PROMPT = _read_prompt('system_prompt.txt')
 OPENING_PROMPT = _read_prompt('opening_prompt.txt')
-SUMMARY_PROMPT = _read_prompt('sumary_prompt.txt')
+SUMMARY_PROMPT = _read_prompt('summary_prompt.txt')
 
 logger = logging.getLogger(__name__)
 
+def _job_context(session) -> dict:
+    posting = session.job_posting
+    requirements = posting.requirements.strip() if posting.requirements else "Δεν έχουν δοθεί συγκεκριμένες απαιτήσεις."
+
+    return {
+        "job_title": posting.title,
+        "job_description": posting.description.strip(),
+        "job_requirements": requirements,
+        "job_context": (
+            f"Τίτλος αγγελίας: {posting.title}\n"
+            f"Περιγραφή αγγελίας:\n{posting.description.strip()}\n\n"
+            f"Απαιτήσεις αγγελίας:\n{requirements}"
+        ),
+    }
+
 def _inject_vars(prompt: str, session) -> str:
-    return prompt.format(job_role=session.job_role)
+    return prompt.format(**_job_context(session))
 
 def get_system_prompt(session):
     return _inject_vars(SYSTEM_PROMPT, session)
