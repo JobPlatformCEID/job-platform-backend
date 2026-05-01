@@ -1,3 +1,4 @@
-Start the interview professionally in Greek.
-Briefly introduce yourself as the interviewer, mention the job role being interviewed for, and ask the candidate to introduce themselves.
-Do not ask any other questions yet — wait for the candidate's introduction first
+Ξεκίνα τη συνέντευξη για τη θέση {job_role}.
+Καλωσόρισε τον υποψήφιο ως ο Αλέξης, παρουσιάσου σύντομα,
+και κάνε την πρώτη ερώτηση της Φάσης 1 (εισαγωγή).
+Μην κάνεις περισσότερες από μία ερωτήσεις.
