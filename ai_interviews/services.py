@@ -74,6 +74,10 @@ def summarize_history(session, history):
     return _route(messages)
 
 
+def _log_tokens(provider: str, prompt: int, completion: int, total: int) -> None:
+    logger.info(f"Tokens ({provider}): prompt={prompt} completion={completion} total={total}")
+
+
 def _groq_response(messages):
     logger.info(f"Using Groq model: {settings.AI_GROQ_MODEL}")
     client = Groq(api_key=settings.GROQ_API_KEY)
@@ -82,6 +86,8 @@ def _groq_response(messages):
         messages=messages,
         temperature=0.4,
     )
+    usage = response.usage
+    _log_tokens("groq", usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
     return response.choices[0].message.content
 
 
@@ -110,6 +116,14 @@ def _gemini_response(messages):
             "temperature": 0.4,
         }
     )
+    usage = getattr(response, "usage_metadata", None)
+    if usage:
+        _log_tokens(
+            "gemini",
+            getattr(usage, "prompt_token_count", 0) or 0,
+            getattr(usage, "candidates_token_count", 0) or 0,
+            getattr(usage, "total_token_count", 0) or 0,
+        )
     return response.text
 
 
@@ -125,4 +139,13 @@ def _ollama_response(messages):
         timeout=60.0
     )
     response.raise_for_status()
-    return response.json()["choices"][0]["message"]["content"]
+    data = response.json()
+    usage = data.get("usage")
+    if usage:
+        _log_tokens(
+            "local",
+            usage.get("prompt_tokens", 0),
+            usage.get("completion_tokens", 0),
+            usage.get("total_tokens", 0),
+        )
+    return data["choices"][0]["message"]["content"]
