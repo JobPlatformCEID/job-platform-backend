@@ -9,13 +9,16 @@ from livekit import api as livekit_api
 from .models import Room
 from .serializers import RoomSerializer
 from users.models import User
+from django.db import models
+from django.shortcuts import get_object_or_404
 
 class RoomListCreateView(generics.ListCreateAPIView):
     serializer_class = RoomSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        return Room.objects.all().order_by('meeting_date')
+        user = self.request.user
+        return Room.objects.filter(models.Q(host=user) | models.Q(participants=user)).distinct().order_by('meeting_date')
 
     def perform_create(self, serializer):
         if self.request.user.role != User.Role.EMPLOYER:
@@ -23,7 +26,23 @@ class RoomListCreateView(generics.ListCreateAPIView):
         meeting_date = serializer.validated_data.get('meeting_date')
         if meeting_date and meeting_date < timezone.now():
             raise ValidationError('Meeting date cannot be in the past.')
-        serializer.save(host=self.request.user)
+        room = serializer.save(host=self.request.user)
+        #host is always a participant and since only an employer can create a room
+        #this line essentially auto adds the host to the meeting
+        room.participants.add(self.request.user)
+
+class RoomParticipantView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        room.participants.add(request.user)
+        return Response({'status': 'added'})
+    
+    def delete(self, request, pk):
+        room = get_object_or_404(Room, pk=pk)
+        room.participants.remove(request.user)
+        return Response({'status': 'removed'})
 
 class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RoomSerializer
