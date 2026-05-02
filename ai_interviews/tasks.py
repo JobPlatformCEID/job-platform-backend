@@ -97,7 +97,7 @@ def generate_ai_response(self, session_id, room_group_name):
     channel_layer = get_channel_layer()
 
     try:
-        session = InterviewSession.objects.get(id=session_id)
+        session = InterviewSession.objects.select_related('job_posting').get(id=session_id)
 
         # 1. Get history from Redis
         history = get_history(session_id)

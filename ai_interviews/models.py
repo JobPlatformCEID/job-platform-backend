@@ -1,12 +1,13 @@
 from django.db import models
 from users.models import User
+from jobs.models import JobPosting
 
 # Create your models here.
 
 # these will be the chats
 class InterviewSession(models.Model):
     user = models.ForeignKey(User , on_delete=models.CASCADE ,related_name='interview_session' )
-    job_role = models.CharField(max_length=100)
+    job_posting = models.ForeignKey(JobPosting, on_delete=models.CASCADE, related_name='interview_sessions')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     title = models.CharField(max_length=50, default='')
@@ -15,7 +16,7 @@ class InterviewSession(models.Model):
         ordering = ['-created_at']
     
     def __str__(self):
-        return f"{self.user} - {self.job_role}"
+        return f"{self.user} - {self.job_posting.title}"
 
 # these will be the chat messages
 class InterviewMessage(models.Model):

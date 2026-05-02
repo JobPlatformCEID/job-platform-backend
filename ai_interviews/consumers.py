@@ -92,7 +92,7 @@ class InterviewConsumer(AsyncWebsocketConsumer):
     @database_sync_to_async
     def get_session(self):
         try:
-            return InterviewSession.objects.select_related('user').get(id=self.session_id)
+            return InterviewSession.objects.select_related('user', 'job_posting').get(id=self.session_id)
         except InterviewSession.DoesNotExist:
             return None
 
