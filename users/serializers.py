@@ -70,5 +70,5 @@ class SkillSerializer(serializers.ModelSerializer):
 class EmployerListSerializer(serializers.ModelSerializer):
     class Meta:
         model = EmployerProfile
-        fields = ['id', 'company_name', 'location', 'website']
+        fields = ['id', 'company_name', 'location', 'website','user']
 
