@@ -6,5 +6,5 @@ class RoomSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Room
-        fields = ['id', 'room_name', 'description', 'meeting_date', 'created_at', 'host', 'host_username']
-        read_only_fields = ['host', 'created_at']
+        fields = ['id', 'room_name', 'description','is_active' ,'meeting_date', 'created_at', 'host', 'host_username']
+        read_only_fields = ['host', 'created_at' , 'is_active']

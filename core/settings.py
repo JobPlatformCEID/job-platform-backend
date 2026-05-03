@@ -234,6 +234,15 @@ CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'django-cache'
 CELERY_RESULT_EXTENDED = True
 
+from celery.schedules import crontab
+
+CELERY_BEAT_SCHEDULE = {
+    'delete-expired-rooms': {
+        'task': 'calls.tasks.delete_expired_rooms',
+        'schedule': crontab(minute='0', hour='*/1'),  # runs every hour
+    },
+}
+
 # AI settings
 AI_BACKEND = config('AI_BACKEND', default='gemini')  # changed default to gemini
 AI_LOCAL_MODEL = config('AI_LOCAL_MODEL', default='qwen2.5-3b-instruct-q4_k_m.gguf')

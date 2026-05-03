@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.conf import settings
 from django.utils import timezone
+from datetime import timedelta
 from livekit import api as livekit_api
 from .models import Room
 from .serializers import RoomSerializer
@@ -12,13 +13,21 @@ from users.models import User
 from django.db import models
 from django.shortcuts import get_object_or_404
 
+EXPIRY_HOURS = 24
+
 class RoomListCreateView(generics.ListCreateAPIView):
     serializer_class = RoomSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
         user = self.request.user
-        return Room.objects.filter(models.Q(host=user) | models.Q(participants=user)).distinct().order_by('meeting_date')
+        expiry_threshold = timezone.now() - timedelta(hours=EXPIRY_HOURS)
+        return Room.objects.filter(
+            models.Q(host=user) | models.Q(participants=user)
+        ).exclude(
+            models.Q(meeting_date__isnull=False, meeting_date__lt=expiry_threshold) |
+            models.Q(meeting_date__isnull=True, created_at__lt=expiry_threshold)
+        ).distinct().order_by('meeting_date')
 
     def perform_create(self, serializer):
         if self.request.user.role != User.Role.EMPLOYER:
@@ -27,9 +36,10 @@ class RoomListCreateView(generics.ListCreateAPIView):
         if meeting_date and meeting_date < timezone.now():
             raise ValidationError('Meeting date cannot be in the past.')
         room = serializer.save(host=self.request.user)
-        #host is always a participant and since only an employer can create a room
-        #this line essentially auto adds the host to the meeting
+        # Host is always a participant and since only an employer can create a room
+        # this line essentially auto adds the host to the meeting
         room.participants.add(self.request.user)
+
 
 class RoomParticipantView(APIView):
     permission_classes = [IsAuthenticated]
@@ -38,21 +48,24 @@ class RoomParticipantView(APIView):
         room = get_object_or_404(Room, pk=pk)
         room.participants.add(request.user)
         return Response({'status': 'added'})
-    
+
     def delete(self, request, pk):
         room = get_object_or_404(Room, pk=pk)
         room.participants.remove(request.user)
         return Response({'status': 'removed'})
+
 
 class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = RoomSerializer
     permission_classes = [IsAuthenticated]
 
     def get_object(self):
-        try:
-            return Room.objects.get(pk=self.kwargs.get('pk'))
-        except Room.DoesNotExist:
-            raise NotFound('Room not found.')
+        if not hasattr(self, '_room'):
+            try:
+                self._room = Room.objects.get(pk=self.kwargs.get('pk'))
+            except Room.DoesNotExist:
+                raise NotFound('Room not found.')
+        return self._room
 
     def update(self, request, *args, **kwargs):
         room = self.get_object()
@@ -66,6 +79,7 @@ class RoomDetailView(generics.RetrieveUpdateDestroyAPIView):
             raise PermissionDenied('Only the host can delete this room.')
         return super().destroy(request, *args, **kwargs)
 
+
 class RoomTokenView(APIView):
     permission_classes = [IsAuthenticated]
 
@@ -75,8 +89,11 @@ class RoomTokenView(APIView):
         except Room.DoesNotExist:
             raise NotFound('Room not found.')
 
-        if room.meeting_date > timezone.now():
+        if room.meeting_date and room.meeting_date > timezone.now():
             raise ValidationError('Meeting has not started yet.')
+
+        if room.meeting_date and room.meeting_date < timezone.now() - timedelta(hours=EXPIRY_HOURS):
+            raise ValidationError('This meeting has expired.')
 
         is_host = room.host == request.user
 

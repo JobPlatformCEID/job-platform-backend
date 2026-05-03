@@ -9,7 +9,7 @@ class Room(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     meeting_date = models.DateTimeField(null=True, blank=True)
     description = models.TextField(blank=True, default='')
-    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=False)
     participants = models.ManyToManyField(User , related_name='participants_room')
 
     def __str__(self):
