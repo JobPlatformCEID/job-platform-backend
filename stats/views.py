@@ -79,7 +79,7 @@ class JobPostingsOverTimeView(APIView):
         title = request.query_params.get('title')
         if not title:
             return Response({'error': 'title query parameter is required'}, status=400)
-        
+
         data = (
             JobPosting.objects
             .filter(title__icontains=title)
@@ -88,7 +88,23 @@ class JobPostingsOverTimeView(APIView):
             .annotate(count=Count('id'))
             .order_by('date')
         )
-        result = [{'date': item['date'].strftime('%Y-%m-%d'), 'count': item['count']} for item in data]
+        # Build a dict of date -> count, then fill in every day with 0 if missing
+        date_counts = {item['date'].strftime('%Y-%m-%d'): item['count'] for item in data}
+        if date_counts:
+            from datetime import timedelta
+            from django.utils import timezone
+            start_date = min(date_counts.keys())
+            end_date = max(date_counts.keys())
+            start = timezone.now().strptime(start_date, '%Y-%m-%d').date()
+            end = timezone.now().strptime(end_date, '%Y-%m-%d').date()
+            result = []
+            current = start
+            while current <= end:
+                key = current.strftime('%Y-%m-%d')
+                result.append({'date': key, 'count': date_counts.get(key, 0)})
+                current += timedelta(days=1)
+        else:
+            result = []
         return Response(result)
 
 class RemoteVsOnsiteView(APIView):
@@ -165,20 +181,14 @@ class SalaryRangeDistributionView(APIView):
 
         step = 1000
         start = (min_sal // step) * step
-        num_buckets = max(1,math.ceil((max_sal - start) / step))
-
-        while num_buckets > 5:
-            step *= 2
-            start = (min_sal // step) * step
-            num_buckets = max(1,math.ceil((max_sal - start) / step))
+        end = ((max_sal // step) + 1) * step
 
         result = []
         current = start
-        for _ in range(num_buckets):
+        while current < end:
             next_val = current + step
-            is_last = next_val > max_sal
             count = qs.filter(salary_min__gte=current, salary_min__lt=next_val).count()
-            label = f'{current}+' if is_last else f'{current}-{next_val}'
+            label = f'{current}-{next_val}'
             result.append({'range': label, 'count': count})
             current = next_val
 
