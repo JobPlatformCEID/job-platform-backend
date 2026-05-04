@@ -18,3 +18,6 @@ db.sqlite3
 # Huggingface
 models/
 .gguf
+
+# Cron celery
+celerybeat-*
