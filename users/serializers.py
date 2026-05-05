@@ -68,7 +68,14 @@ class SkillSerializer(serializers.ModelSerializer):
         read_only_fields = ['candidate']
 
 class EmployerListSerializer(serializers.ModelSerializer):
+    avatar = serializers.SerializerMethodField()
+
     class Meta:
         model = EmployerProfile
-        fields = ['id', 'company_name', 'location', 'website','user']
+        fields = ['id', 'company_name', 'location', 'website', 'user', 'avatar']
 
+    def get_avatar(self, obj):
+        request = self.context.get('request')
+        if obj.user.avatar and request:
+            return request.build_absolute_uri(obj.user.avatar.url)
+        return None
