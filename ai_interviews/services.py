@@ -1,7 +1,6 @@
 import httpx
 from django.conf import settings
 from pathlib import Path
-from groq import Groq
 import logging
 from google import genai
 
@@ -46,9 +45,7 @@ def build_messages(session, history):
 
 
 def _route(messages):
-    if settings.AI_BACKEND == "groq":
-        return _groq_response(messages)
-    elif settings.AI_BACKEND == "gemini":
+    if settings.AI_BACKEND == "gemini":
         return _gemini_response(messages)
     return _ollama_response(messages)
 
@@ -76,19 +73,6 @@ def summarize_history(session, history):
 
 def _log_tokens(provider: str, prompt: int, completion: int, total: int) -> None:
     logger.info(f"Tokens ({provider}): prompt={prompt} completion={completion} total={total}")
-
-
-def _groq_response(messages):
-    logger.info(f"Using Groq model: {settings.AI_GROQ_MODEL}")
-    client = Groq(api_key=settings.GROQ_API_KEY)
-    response = client.chat.completions.create(
-        model=settings.AI_GROQ_MODEL,
-        messages=messages,
-        temperature=0.4,
-    )
-    usage = response.usage
-    _log_tokens("groq", usage.prompt_tokens, usage.completion_tokens, usage.total_tokens)
-    return response.choices[0].message.content
 
 
 def _gemini_response(messages):

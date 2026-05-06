@@ -306,7 +306,6 @@ class RedisTests(TestCase):
         self.assertEqual(send_call_args['type'], 'error')
 
 class ServicesTest(TestCase):
- 
     def setUp(self):
         self.user = User.objects.create_user(username='testuser', password='pass')
         self.session = InterviewSession.objects.create(
@@ -334,15 +333,15 @@ class ServicesTest(TestCase):
         contents = [m['content'] for m in messages]
         self.assertIn('my question', contents)
  
-    @patch('ai_interviews.services._groq_response')
+    @patch('ai_interviews.services._gemini_response')
     @patch('ai_interviews.services.settings')
-    def test_get_ai_response_uses_groq_when_configured(self, mock_settings, mock_groq):
-        mock_settings.AI_BACKEND = 'groq'
-        mock_groq.return_value = 'groq answer'
+    def test_get_ai_response_uses_gemini_when_configured(self, mock_settings, mock_gemini):
+        mock_settings.AI_BACKEND = 'gemini'
+        mock_gemini.return_value = 'gemini answer'
         history = [{'role': 'user', 'content': 'question'}]
         result = get_ai_response(self.session, history)
-        self.assertEqual(result, 'groq answer')
-        mock_groq.assert_called_once()
+        self.assertEqual(result, 'gemini answer')
+        mock_gemini.assert_called_once()
  
     @patch('ai_interviews.services._ollama_response')
     @patch('ai_interviews.services.settings')
@@ -354,19 +353,19 @@ class ServicesTest(TestCase):
         self.assertEqual(result, 'local answer')
         mock_ollama.assert_called_once()
  
-    @patch('ai_interviews.services._groq_response')
+    @patch('ai_interviews.services._gemini_response')
     @patch('ai_interviews.services.settings')
-    def test_get_opening_message_calls_backend(self, mock_settings, mock_groq):
-        mock_settings.AI_BACKEND = 'groq'
-        mock_groq.return_value = 'Welcome!'
+    def test_get_opening_message_calls_backend(self, mock_settings, mock_gemini):
+        mock_settings.AI_BACKEND = 'gemini'
+        mock_gemini.return_value = 'Welcome!'
         result = get_opening_message(self.session)
         self.assertEqual(result, 'Welcome!')
  
-    @patch('ai_interviews.services._groq_response')
+    @patch('ai_interviews.services._gemini_response')
     @patch('ai_interviews.services.settings')
-    def test_summarize_history_returns_summary(self, mock_settings, mock_groq):
-        mock_settings.AI_BACKEND = 'groq'
-        mock_groq.return_value = 'Summary here.'
+    def test_summarize_history_returns_summary(self, mock_settings, mock_gemini):
+        mock_settings.AI_BACKEND = 'gemini'
+        mock_gemini.return_value = 'Summary here.'
         history = [{'role': 'user', 'content': 'lots of messages'}]
         result = summarize_history(self.session, history)
         self.assertEqual(result, 'Summary here.')
