@@ -8,7 +8,7 @@ from .serializers import (
     InterviewSessionDetailSerializer, 
     MessageSerializer,
 )
-from .services import get_opening_message
+from .tasks import generate_opening_message
 
 logger = logging.getLogger(__name__)
 
@@ -19,10 +19,10 @@ class InterviewSessionListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         return InterviewSession.objects.filter(user=self.request.user).select_related('job_posting')
     
-    def perform_create(self , serializer):
+    def perform_create(self, serializer):
         session = serializer.save(user=self.request.user)
-        opening = get_opening_message(session)
-        InterviewMessage.objects.create(session=session, role=InterviewMessage.Role.Assistant, content=opening)
+        room_group_name = f'interview_session_{session.id}'
+        generate_opening_message.delay(session.id, room_group_name)
 
 class InterviewSessionDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [IsAuthenticated]

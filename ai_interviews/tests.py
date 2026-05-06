@@ -97,15 +97,16 @@ class InterviewSessionListCreateViewTest(APITestCase):
         self.client.force_authenticate(user=self.user)
         self.url = '/api/sessions/'
  
-    def test_create_session_creates_opening_message(self):
+    def test_create_session_dispatches_opening_message_task(self):
         job = create_test_job('Data Scientist')
-        with patch('ai_interviews.views.get_opening_message', return_value='Opening question'):
+        with patch('ai_interviews.views.generate_opening_message') as mock_task:
             response = self.client.post(self.url, {'job_posting_id': job.id, 'title': 'Test'})
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         session_id = response.data['id']
+        mock_task.delay.assert_called_once_with(session_id, f'interview_session_{session_id}')
+        # Opening message is NOT created synchronously anymore
         msgs = InterviewMessage.objects.filter(session_id=session_id)
-        self.assertEqual(msgs.count(), 1)
-        self.assertEqual(msgs.first().role, InterviewMessage.Role.Assistant)
+        self.assertEqual(msgs.count(), 0)
  
     def test_list_returns_only_own_sessions(self):
         InterviewSession.objects.create(user=self.user, job_posting=create_test_job('Dev'))
