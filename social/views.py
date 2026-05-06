@@ -3,7 +3,6 @@ from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied, NotFound, ValidationError
 from rest_framework.response import Response
-from django.db import IntegrityError
 from core.utils import compress_image
 from .models import Post, Comment, Like, PostImage
 from .serializers import PostSerializer, PostImageSerializer, CommentSerializer, LikeSerializer
@@ -146,16 +145,14 @@ class LikeView(APIView):
             post = Post.objects.get(pk=pk)
         except Post.DoesNotExist:
             raise NotFound('Post not found.')
-        try:
-            Like.objects.create(user=request.user, post=post)
-            return Response({'message': 'Post liked.'}, status=status.HTTP_201_CREATED)
-        except IntegrityError:
-            raise ValidationError('You have already liked this post.')
-
-    def delete(self, request, pk):
-        try:
-            like = Like.objects.get(user=request.user, post_id=pk)
+        like = Like.objects.filter(user=request.user, post=post).first()
+        if like:
             like.delete()
-            return Response({'message': 'Post unliked.'}, status=status.HTTP_200_OK)
-        except Like.DoesNotExist:
-            raise NotFound('You have not liked this post.')
+            is_liked = False
+        else:
+            Like.objects.create(user=request.user, post=post)
+            is_liked = True
+        return Response({
+            'is_liked': is_liked,
+            'likes_count': post.likes.count(),
+        }, status=status.HTTP_200_OK)
