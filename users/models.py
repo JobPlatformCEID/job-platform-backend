@@ -31,7 +31,6 @@ class CandidateProfile(models.Model):
     location = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
     cv = models.FileField(upload_to='cvs/', blank=True, null=True)
-    score = models.FloatField(default=0)
 
 class EmployerProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='employer_profile')
