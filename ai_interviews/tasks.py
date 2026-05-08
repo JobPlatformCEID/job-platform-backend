@@ -11,7 +11,7 @@ from channels.layers import get_channel_layer
 from django.core.cache import cache
 
 from .models import InterviewSession, InterviewMessage
-from .services import get_ai_response, summarize_history, SUMMARY_THRESHOLD
+from .services import get_ai_response, get_opening_message, summarize_history, SUMMARY_THRESHOLD
 
 logger = logging.getLogger(__name__)
 
@@ -138,11 +138,58 @@ def generate_ai_response(self, session_id, room_group_name):
 
     except Exception as exc:
         logger.error(f"Error generating AI response for session {session_id}: {exc}")
+        if self.request.retries >= self.max_retries:
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    "type": "error",
+                    "message": "Could not generate AI response. Please try sending your message again."
+                }
+            )
+        else:
+            raise self.retry(exc=exc, countdown=5)
+
+
+@shared_task(bind=True, max_retries=1)
+def generate_opening_message(self, session_id, room_group_name):
+    channel_layer = get_channel_layer()
+
+    try:
+        session = InterviewSession.objects.select_related('job_posting').get(id=session_id)
+        opening = get_opening_message(session)
+
+        ai_msg = InterviewMessage.objects.create(
+            session=session,
+            role=InterviewMessage.Role.Assistant,
+            content=opening
+        )
+        append_to_history(session_id, InterviewMessage.Role.Assistant, opening)
+
         async_to_sync(channel_layer.group_send)(
             room_group_name,
             {
-                "type": "error",
-                "message": "Κάτι πήγε στραβά, παρακαλώ δοκίμασε ξανά."
+                "type": "ai_message",
+                "message": {
+                    "id": ai_msg.id,
+                    "role": ai_msg.role,
+                    "content": ai_msg.content,
+                    "created_at": ai_msg.created_at.isoformat(),
+                }
             }
         )
-        raise self.retry(exc=exc, countdown=5)
+
+    except InterviewSession.DoesNotExist:
+        logger.error(f"Session {session_id} not found for opening message")
+
+    except Exception as exc:
+        logger.error(f"Error generating opening message for session {session_id}: {exc}")
+        if self.request.retries >= self.max_retries:
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    "type": "error",
+                    "message": "Could not generate opening message. You can start the conversation by typing a message."
+                }
+            )
+        else:
+            raise self.retry(exc=exc, countdown=5)

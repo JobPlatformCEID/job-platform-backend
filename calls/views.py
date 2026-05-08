@@ -96,6 +96,9 @@ class RoomTokenView(APIView):
             raise ValidationError('This meeting has expired.')
 
         is_host = room.host == request.user
+        is_participant = room.participants.filter(id=request.user.id).exists()
+        if not is_host and not is_participant:
+            raise PermissionDenied('You are not a participant of this meeting.')
 
         token = livekit_api.AccessToken(
             settings.LIVEKIT_API_KEY,

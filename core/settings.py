@@ -246,8 +246,6 @@ CELERY_BEAT_SCHEDULE = {
 # AI settings
 AI_BACKEND = config('AI_BACKEND', default='gemini')  # changed default to gemini
 AI_LOCAL_MODEL = config('AI_LOCAL_MODEL', default='qwen2.5-3b-instruct-q4_k_m.gguf')
-AI_GROQ_MODEL = config('AI_GROQ_MODEL', default='llama-3.3-70b-versatile')
-GROQ_API_KEY = config('GROQ_API_KEY', default='')
 AI_GEMINI_MODEL = config('AI_GEMINI_MODEL', default='gemma-4-31b-it')
 GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
 

@@ -279,36 +279,42 @@ class LikeTests(TestCase):
     def test_candidate_can_like_post(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
         response = self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['is_liked'])
 
     def test_employer_can_like_post(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
         response = self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
-        self.assertEqual(response.status_code, 201)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.data['is_liked'])
 
-    def test_candidate_cannot_like_post_twice(self):
+    def test_candidate_can_toggle_like_off(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
         self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
         response = self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['is_liked'])
 
-    def test_employer_cannot_like_post_twice(self):
+    def test_employer_can_toggle_like_off(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
         self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
         response = self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
-        self.assertEqual(response.status_code, 400)
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['is_liked'])
 
     def test_candidate_can_unlike_post(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
         self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
-        response = self.client.delete(f'/api/posts/{self.candidate_post_id}/like/')
+        response = self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
         self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['is_liked'])
 
     def test_employer_can_unlike_post(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
         self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
-        response = self.client.delete(f'/api/posts/{self.candidate_post_id}/like/')
+        response = self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
         self.assertEqual(response.status_code, 200)
+        self.assertFalse(response.data['is_liked'])
 
     def test_unauthenticated_user_cannot_like_post(self):
         self.client.credentials()
@@ -331,7 +337,7 @@ class LikeTests(TestCase):
     def test_likes_count_decreases_after_unlike(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
         self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
-        self.client.delete(f'/api/posts/{self.candidate_post_id}/like/')
+        self.client.post(f'/api/posts/{self.candidate_post_id}/like/')
         response = self.client.get(f'/api/posts/{self.candidate_post_id}/')
         self.assertEqual(response.data['likes_count'], 0)
 
