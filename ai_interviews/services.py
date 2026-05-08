@@ -10,6 +10,7 @@ def _read_prompt(filename):
     return (PROMPTS_DIR / filename).read_text(encoding='utf-8').strip()
 
 SUMMARY_THRESHOLD = 16
+MAX_AI_RESPONSES = 14  # hard cap on AI questions per interview to control token cost
 
 SYSTEM_PROMPT = _read_prompt('system_prompt.txt')
 OPENING_PROMPT = _read_prompt('opening_prompt.txt')

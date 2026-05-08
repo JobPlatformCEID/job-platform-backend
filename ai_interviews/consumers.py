@@ -7,6 +7,7 @@ from channels.db import database_sync_to_async
 
 from .models import InterviewSession, InterviewMessage
 from .tasks import generate_ai_response, append_to_history
+from .services import MAX_AI_RESPONSES
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +52,12 @@ class InterviewConsumer(AsyncWebsocketConsumer):
 
         if not content:
             await self.send_error("Message content cannot be empty.")
+            return
+
+        if await self.count_user_messages() >= MAX_AI_RESPONSES:
+            await self.send_error(
+                f"Η συνέντευξη έχει ολοκληρωθεί (όριο {MAX_AI_RESPONSES} απαντήσεων)."
+            )
             return
 
         user_msg = await self.save_message(role=InterviewMessage.Role.USER, content=content)
@@ -100,6 +107,13 @@ class InterviewConsumer(AsyncWebsocketConsumer):
     def save_message(self, role, content):
         session = InterviewSession.objects.get(id=self.session_id)
         return InterviewMessage.objects.create(session=session, role=role, content=content)
+
+    @database_sync_to_async
+    def count_user_messages(self):
+        return InterviewMessage.objects.filter(
+            session_id=self.session_id,
+            role=InterviewMessage.Role.USER,
+        ).count()
 
     async def send_error(self, message: str):
         await self.send(text_data=json.dumps({

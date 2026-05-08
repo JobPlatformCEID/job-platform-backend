@@ -11,7 +11,8 @@ from channels.layers import get_channel_layer
 from django.core.cache import cache
 
 from .models import InterviewSession, InterviewMessage
-from .services import get_ai_response, get_opening_message, summarize_history, SUMMARY_THRESHOLD
+from .services import get_ai_response, get_opening_message, summarize_history, SUMMARY_THRESHOLD, MAX_AI_RESPONSES
+
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +99,24 @@ def generate_ai_response(self, session_id, room_group_name):
 
     try:
         session = InterviewSession.objects.select_related('job_posting').get(id=session_id)
+
+        # 0. Hard cap check — refuse to burn tokens past the limit
+        assistant_count = InterviewMessage.objects.filter(
+            session=session,
+            role=InterviewMessage.Role.Assistant,
+        ).count()
+        if assistant_count >= MAX_AI_RESPONSES:
+            logger.info(
+                f"Session {session_id} hit AI response limit ({MAX_AI_RESPONSES}); skipping AI call"
+            )
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    "type": "error",
+                    "message": f"Η συνέντευξη ολοκληρώθηκε (όριο {MAX_AI_RESPONSES} ερωτήσεων).",
+                }
+            )
+            return
 
         # 1. Get history from Redis
         history = get_history(session_id)
