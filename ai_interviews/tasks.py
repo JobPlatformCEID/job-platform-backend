@@ -153,10 +153,10 @@ def generate_ai_response(self, session_id, room_group_name):
                 }
             )
         else:
-            raise self.retry(exc=exc, countdown=5)
+            raise self.retry(exc=exc, countdown=2 ** self.request.retries * 5 )
 
 
-@shared_task(bind=True, max_retries=1)
+@shared_task(bind=True, max_retries=3)
 def generate_opening_message(self, session_id, room_group_name):
     channel_layer = get_channel_layer()
 
@@ -204,4 +204,4 @@ def generate_opening_message(self, session_id, room_group_name):
                 }
             )
         else:
-            raise self.retry(exc=exc, countdown=5)
+            raise self.retry(exc=exc, countdown=2 ** self.request.retries * 5)
