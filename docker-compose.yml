@@ -2,8 +2,7 @@ services:
   django:
     build: .
     ports:
-      - "8000:8000"
-      - "8001:8001"
+      - "127.0.0.1:8000:8000"
     volumes:
       - .:/app
     env_file:
@@ -14,12 +13,11 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - DAPHNE_PORT=8001
       - AI_NVIDIA_ENDPOINT=http://ollama-nvidia:11434
       - AI_AMD_ENDPOINT=http://llama-cpp-amd:8080
       - AI_CPU_ENDPOINT=http://llama-cpp-cpu:8080
-      - MINIO_PUBLIC_ENDPOINT=${HOST_PUBLIC_ENDPOINT:-localhost}:9000
-      - LIVEKIT_URL=ws://${HOST_PUBLIC_ENDPOINT:-localhost}:7880
+      - MINIO_PUBLIC_ENDPOINT=https://${HOST_PUBLIC_ENDPOINT:-localhost}/minio
+      - LIVEKIT_URL=wss://${HOST_PUBLIC_ENDPOINT:-localhost}/livekit
     depends_on:
       postgres:
         condition: service_healthy
@@ -27,11 +25,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   postgres:
     image: postgres:16
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_DB: ${DB_NAME:-jobplatform}
       POSTGRES_USER: ${DB_USER:-jobplatform}
@@ -44,12 +43,13 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
 
   minio:
     image: minio/minio
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     environment:
       MINIO_ROOT_USER: ${MINIO_USER:-jobplatform}
       MINIO_ROOT_PASSWORD: ${MINIO_PASSWORD:-jobplatform}
@@ -62,23 +62,22 @@ services:
       timeout: 5s
       retries: 5
       start_period: 10s
+    restart: unless-stopped
 
   redis:
     image: redis:7
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 5s
       timeout: 5s
       retries: 5
+    restart: unless-stopped
 
   livekit:
     image: livekit/livekit-server:latest
-    ports:    # Use "network_mode: host" in prod for better performance
-      - "7880:7880"
-      - "7881:7881"
-      - "7882-7892:7882-7892/udp"
+    network_mode: host
     environment:
       LIVEKIT_KEYS: "${LIVEKIT_API_KEY}: ${LIVEKIT_API_SECRET}"
       LIVEKIT_CONFIG: |
@@ -86,9 +85,12 @@ services:
         rtc:
           tcp_port: 7881
           udp_port: 7882-7892
-          use_external_ip: false
+          use_external_ip: true
+          interfaces:
+            excludes:
+              - docker0
         redis:
-          address: redis:6379
+          address: localhost:6379
         logging:
           level: warn
           sample: true
@@ -96,6 +98,7 @@ services:
     depends_on:
       redis:
         condition: service_healthy
+    restart: unless-stopped
 
   # --- OLLAMA FOR NVIDIA USERS ---
   ollama-nvidia:
@@ -184,8 +187,8 @@ services:
       - AI_NVIDIA_ENDPOINT=http://ollama-nvidia:11434
       - AI_AMD_ENDPOINT=http://llama-cpp-amd:8080
       - AI_CPU_ENDPOINT=http://llama-cpp-cpu:8080
-      - MINIO_PUBLIC_ENDPOINT=${HOST_PUBLIC_ENDPOINT:-localhost}:9000
-      - LIVEKIT_URL=ws://${HOST_PUBLIC_ENDPOINT:-localhost}:7880
+      - MINIO_PUBLIC_ENDPOINT=https://${HOST_PUBLIC_ENDPOINT:-localhost}/minio
+      - LIVEKIT_URL=wss://${HOST_PUBLIC_ENDPOINT:-localhost}/livekit
     depends_on:
       postgres:
         condition: service_healthy
@@ -206,8 +209,8 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - MINIO_PUBLIC_ENDPOINT=${HOST_PUBLIC_ENDPOINT:-localhost}:9000
-      - LIVEKIT_URL=ws://${HOST_PUBLIC_ENDPOINT:-localhost}:7880
+      - MINIO_PUBLIC_ENDPOINT=https://${HOST_PUBLIC_ENDPOINT:-localhost}/minio
+      - LIVEKIT_URL=wss://${HOST_PUBLIC_ENDPOINT:-localhost}/livekit
     depends_on:
       postgres:
         condition: service_healthy

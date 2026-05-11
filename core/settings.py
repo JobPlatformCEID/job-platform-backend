@@ -28,8 +28,17 @@ SECRET_KEY = config('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = config('DEBUG', default=False, cast=bool)
 
-# Note: Replace this with our actual host for production
-ALLOWED_HOSTS = ['*']
+# Prod: Server URL and localhost
+ALLOWED_HOSTS = ['softeng.linkdevel.com', 'localhost', '127.0.0.1']
+
+# Prod: Security settings
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_HTTPONLY = True
+CSRF_COOKIE_HTTPONLY = True
+X_FRAME_OPTIONS = 'DENY'
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SECURE_BROWSER_XSS_FILTER = True
 
 # Application definition
 
@@ -61,6 +70,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -113,11 +123,11 @@ else:
     MINIO_STORAGE_ENDPOINT = config('MINIO_ENDPOINT')
     MINIO_STORAGE_ACCESS_KEY = config('MINIO_USER')
     MINIO_STORAGE_SECRET_KEY = config('MINIO_PASSWORD')
-    MINIO_STORAGE_USE_HTTPS = False                         # Note: Disable HTTPS for now, we should change this in production
+    MINIO_STORAGE_USE_HTTPS = False     # Prod: Nginx handles SSL/HTTPS
     MINIO_STORAGE_MEDIA_BUCKET_NAME = config('MINIO_BUCKET')
     MINIO_STORAGE_AUTO_CREATE_MEDIA_BUCKET = True
     MINIO_STORAGE_AUTO_CREATE_MEDIA_POLICY = 'GET_ONLY'     # Note: This makes files publically downloadable, its what we want for post images
-    MINIO_STORAGE_MEDIA_URL = f"http://{config('MINIO_PUBLIC_ENDPOINT', default=MINIO_STORAGE_ENDPOINT)}/{MINIO_STORAGE_MEDIA_BUCKET_NAME}"
+    MINIO_STORAGE_MEDIA_URL = f"{config('MINIO_PUBLIC_ENDPOINT', default=MINIO_STORAGE_ENDPOINT)}/{MINIO_STORAGE_MEDIA_BUCKET_NAME}"
 
     STORAGES = {
         "default": {
@@ -128,9 +138,18 @@ else:
         },
     }
 
-# CORS
-CORS_ALLOW_ALL_ORIGINS = True   # Note: Change this in production
+# CORS (Prod)
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_URLS_REGEX = r'^/api/.*$'
+CORS_ALLOWED_ORIGINS = [
+    "https://softeng.linkdevel.com",
+]
+
+# CRSF Trusted Origins (Prod)
+CSRF_TRUSTED_ORIGINS = ['https://softeng.linkdevel.com']
+
+# SSL header (prod)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 
 # Channel layer: Redis for normal use, InMemory or django tests
 if 'test' in sys.argv:
@@ -225,6 +244,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Django cache
 if 'test' in sys.argv:
