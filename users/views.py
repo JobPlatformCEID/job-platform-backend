@@ -184,6 +184,13 @@ class SkillViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        candidate_id = self.request.query_params.get('candidate_id')
+        if candidate_id:
+            try:
+                candidate = CandidateProfile.objects.get(id=candidate_id)
+                return Skill.objects.filter(candidate=candidate)
+            except CandidateProfile.DoesNotExist:
+                return Skill.objects.none()
         return Skill.objects.filter(candidate=self.request.user.candidate_profile)
 
     def perform_create(self, serializer):
@@ -195,6 +202,13 @@ class EducationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        candidate_id = self.request.query_params.get('candidate_id')
+        if candidate_id:
+            try:
+                candidate = CandidateProfile.objects.get(id=candidate_id)
+                return Education.objects.filter(candidate=candidate)
+            except CandidateProfile.DoesNotExist:
+                return Education.objects.none()
         return Education.objects.filter(candidate=self.request.user.candidate_profile)
 
     def perform_create(self, serializer):
@@ -206,6 +220,13 @@ class WorkExperienceViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        candidate_id = self.request.query_params.get('candidate_id')
+        if candidate_id:
+            try:
+                candidate = CandidateProfile.objects.get(id=candidate_id)
+                return WorkExperience.objects.filter(candidate=candidate)
+            except CandidateProfile.DoesNotExist:
+                return WorkExperience.objects.none()
         return WorkExperience.objects.filter(candidate=self.request.user.candidate_profile)
 
     def perform_create(self, serializer):
