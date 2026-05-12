@@ -97,7 +97,13 @@ def generate_ai_response(self, session_id, room_group_name):
     channel_layer = get_channel_layer()
 
     try:
-        session = InterviewSession.objects.select_related('job_posting').get(id=session_id)
+        session = InterviewSession.objects.select_related(
+                    'job_posting', 'user', 'user__candidate_profile'
+                ).prefetch_related(
+                    'user__candidate_profile__skills',
+                    'user__candidate_profile__work_experiences',
+                    'user__candidate_profile__educations',
+                ).get(id=session_id)
 
         # 1. Get history from Redis
         history = get_history(session_id)
@@ -147,15 +153,21 @@ def generate_ai_response(self, session_id, room_group_name):
                 }
             )
         else:
-            raise self.retry(exc=exc, countdown=5)
+            raise self.retry(exc=exc, countdown=2 ** self.request.retries * 5 )
 
 
-@shared_task(bind=True, max_retries=1)
+@shared_task(bind=True, max_retries=3)
 def generate_opening_message(self, session_id, room_group_name):
     channel_layer = get_channel_layer()
 
     try:
-        session = InterviewSession.objects.select_related('job_posting').get(id=session_id)
+        session = InterviewSession.objects.select_related(
+                    'job_posting', 'user', 'user__candidate_profile'
+                ).prefetch_related(
+                    'user__candidate_profile__skills',
+                    'user__candidate_profile__work_experiences',
+                    'user__candidate_profile__educations',
+                ).get(id=session_id)
         opening = get_opening_message(session)
 
         ai_msg = InterviewMessage.objects.create(
@@ -192,4 +204,4 @@ def generate_opening_message(self, session_id, room_group_name):
                 }
             )
         else:
-            raise self.retry(exc=exc, countdown=5)
+            raise self.retry(exc=exc, countdown=2 ** self.request.retries * 5)

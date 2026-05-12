@@ -17,6 +17,59 @@ SUMMARY_PROMPT = _read_prompt('summary_prompt.txt')
 
 logger = logging.getLogger(__name__)
 
+def _candidate_context(session) -> dict:
+    user = session.user
+    profile = getattr(user, 'candidate_profile', None)
+
+    if profile is None:
+        return {
+            "candidate_skills": "Δεν υπάρχουν καταχωρημένες δεξιότητες.",
+            "candidate_experience": "Δεν υπάρχει καταχωρημένη εμπειρία.",
+            "candidate_education": "Δεν υπάρχει καταχωρημένη εκπαίδευση.",
+            "candidate_context": "Δεν υπάρχουν διαθέσιμα στοιχεία υποψηφίου.",
+        }
+
+    skills = profile.skills.all()
+    skills_text = ", ".join(s.name for s in skills) if skills else "Δεν υπάρχουν καταχωρημένες δεξιότητες."
+
+    experiences = profile.work_experiences.all()
+    if experiences:
+        exp_lines = []
+        for e in experiences:
+            end = e.end_date.strftime("%m/%Y") if e.end_date else "Σήμερα"
+            exp_lines.append(
+                f"- {e.title} @ {e.company} ({e.start_date.strftime('%m/%Y')}–{end})"
+                + (f" [{e.get_employment_type_display()}]" if e.employment_type else "")
+                + (f"\n  {e.description}" if e.description else "")
+            )
+        experience_text = "\n".join(exp_lines)
+    else:
+        experience_text = "Δεν υπάρχει καταχωρημένη εμπειρία."
+
+    educations = profile.educations.all()
+    if educations:
+        edu_lines = []
+        for e in educations:
+            grad = f" ({e.graduation_date.strftime('%m/%Y')})" if e.graduation_date else ""
+            edu_lines.append(f"- {e.degree} – {e.institution} [{e.get_level_display()}]{grad}")
+        education_text = "\n".join(edu_lines)
+    else:
+        education_text = "Δεν υπάρχει καταχωρημένη εκπαίδευση."
+
+    candidate_context = (
+        f"Δεξιότητες:\n{skills_text}\n\n"
+        f"Επαγγελματική Εμπειρία:\n{experience_text}\n\n"
+        f"Εκπαίδευση:\n{education_text}"
+    )
+
+    return {
+        "candidate_skills": skills_text,
+        "candidate_experience": experience_text,
+        "candidate_education": education_text,
+        "candidate_context": candidate_context,
+    }
+
+
 def _job_context(session) -> dict:
     posting = session.job_posting
     requirements = posting.requirements.strip() if posting.requirements else "Δεν έχουν δοθεί συγκεκριμένες απαιτήσεις."
@@ -33,10 +86,13 @@ def _job_context(session) -> dict:
     }
 
 def _inject_vars(prompt: str, session) -> str:
-    return prompt.format(**_job_context(session))
+    return prompt.format(**_job_context(session), **_candidate_context(session))
 
 def get_system_prompt(session):
-    return _inject_vars(SYSTEM_PROMPT, session)
+    prompt = _inject_vars(SYSTEM_PROMPT, session)
+    #debug info just to make sure that the vars are indeed in the system prompt
+    #logger.info("System prompt:\n%s", prompt)
+    return prompt
 
 def build_messages(session, history):
     messages = [{"role": "system", "content": get_system_prompt(session)}]
