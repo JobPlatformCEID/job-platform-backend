@@ -4,6 +4,9 @@ from django.contrib.auth.models import AbstractUser
 def avatar_upload_path(instance, filename):
     return f'avatars/{instance.id}/{filename}'
 
+def cv_upload_path(instance, filename):
+    return f'cvs/{instance.id}/{filename}'
+
 # Custom User model: Needed because the default one doesn't have Role
 class User(AbstractUser):
     class Role(models.TextChoices):
@@ -30,7 +33,7 @@ class CandidateProfile(models.Model):
     phone = models.CharField(max_length=20, blank=True)
     location = models.CharField(max_length=100, blank=True)
     bio = models.TextField(blank=True)
-    cv = models.FileField(upload_to='cvs/', blank=True, null=True)
+    cv = models.FileField(upload_to=cv_upload_path, blank=True, null=True)
 
 class EmployerProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='employer_profile')
