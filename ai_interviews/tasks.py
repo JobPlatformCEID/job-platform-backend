@@ -30,10 +30,10 @@ def get_history(session_id):
         return cached
 
     logger.debug(f"Cache miss for session {session_id}, rebuilding from PostgreSQL")
-    
+
     # Check if a summary exists before rebuilding
     summary = cache.get(SUMMARY_KEY.format(session_id))
-    
+
     messages = InterviewMessage.objects.filter(
         session_id=session_id
     ).order_by('created_at')  # ALL messages, oldest first

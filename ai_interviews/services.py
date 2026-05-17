@@ -2,7 +2,7 @@ import httpx
 from django.conf import settings
 from pathlib import Path
 import logging
-from google import genai
+from groq import Groq
 
 PROMPTS_DIR = Path(__file__).parent / 'prompts'
 
@@ -69,7 +69,6 @@ def _candidate_context(session) -> dict:
         "candidate_context": candidate_context,
     }
 
-
 def _job_context(session) -> dict:
     posting = session.job_posting
     requirements = posting.requirements.strip() if posting.requirements else "Δεν έχουν δοθεί συγκεκριμένες απαιτήσεις."
@@ -99,16 +98,13 @@ def build_messages(session, history):
     messages.extend(history)
     return messages
 
-
 def _route(messages):
-    if settings.AI_BACKEND == "gemini":
-        return _gemini_response(messages)
+    if settings.AI_BACKEND == "groq":
+        return _groq_response(messages)
     return _ollama_response(messages)
-
 
 def get_ai_response(session, history):
     return _route(build_messages(session, history))
-
 
 def get_opening_message(session):
     messages = [
@@ -116,7 +112,6 @@ def get_opening_message(session):
         {"role": "user", "content": _inject_vars(OPENING_PROMPT, session)},
     ]
     return _route(messages)
-
 
 def summarize_history(session, history):
     messages = [
@@ -126,46 +121,27 @@ def summarize_history(session, history):
     ]
     return _route(messages)
 
-
 def _log_tokens(provider: str, prompt: int, completion: int, total: int) -> None:
     logger.info(f"Tokens ({provider}): prompt={prompt} completion={completion} total={total}")
 
+def _groq_response(messages):
+    logger.info(f"Using Groq model: {settings.AI_GROQ_MODEL}")
+    client = Groq(api_key=settings.GROQ_API_KEY)
 
-def _gemini_response(messages):
-    logger.info(f"Using Gemini model: {settings.AI_GEMINI_MODEL}")
-    client = genai.Client(api_key=settings.GEMINI_API_KEY)
-
-    # Extract system prompt and conversation separately
-    system_prompt = next(
-        (m["content"] for m in messages if m["role"] == "system"), None
+    response = client.chat.completions.create(
+        model=settings.AI_GROQ_MODEL,
+        messages=messages,
+        temperature=0.4,
     )
-    conversation = [m for m in messages if m["role"] != "system"]
-
-    # Convert to Gemini format
-    gemini_contents = [
-        {"role": "model" if m["role"] == "assistant" else "user",
-         "parts": [{"text": m["content"]}]}
-        for m in conversation
-    ]
-
-    response = client.models.generate_content(
-        model=settings.AI_GEMINI_MODEL,
-        contents=gemini_contents,
-        config={
-            "system_instruction": system_prompt,
-            "temperature": 0.4,
-        }
-    )
-    usage = getattr(response, "usage_metadata", None)
+    usage = response.usage
     if usage:
         _log_tokens(
-            "gemini",
-            getattr(usage, "prompt_token_count", 0) or 0,
-            getattr(usage, "candidates_token_count", 0) or 0,
-            getattr(usage, "total_token_count", 0) or 0,
+            "groq",
+            usage.prompt_tokens,
+            usage.completion_tokens,
+            usage.total_tokens,
         )
-    return response.text
-
+    return response.choices[0].message.content
 
 def _ollama_response(messages):
     logger.info(f"Using local model: {settings.AI_LOCAL_MODEL}")

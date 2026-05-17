@@ -244,14 +244,16 @@ CELERY_BEAT_SCHEDULE = {
 }
 
 # AI settings
-AI_BACKEND = config('AI_BACKEND', default='gemini')  # changed default to gemini
-AI_LOCAL_MODEL = config('AI_LOCAL_MODEL', default='qwen2.5-3b-instruct-q4_k_m.gguf')
-AI_GEMINI_MODEL = config('AI_GEMINI_MODEL', default='gemma-4-31b-it')
-GEMINI_API_KEY = config('GEMINI_API_KEY', default='')
-
-_ENDPOINTS = {
-    'nvidia': config('AI_NVIDIA_ENDPOINT', default=''),
-    'amd': config('AI_AMD_ENDPOINT', default=''),
-    'cpu': config('AI_CPU_ENDPOINT', default=''),
-}
-AI_LOCAL_ENDPOINT = _ENDPOINTS.get(config('AI_GPU_VENDOR'), config('AI_CPU_ENDPOINT', default=''))
+AI_BACKEND = config('AI_BACKEND', default='groq')
+if AI_BACKEND == 'groq':
+    AI_GROQ_MODEL = config('AI_GROQ_MODEL', default='llama-3.3-70b-versatile')
+    GROQ_API_KEY = config('GROQ_API_KEY')
+elif AI_BACKEND == 'local':
+    AI_LOCAL_MODEL = config('AI_LOCAL_MODEL')
+    AI_GPU_VENDOR = config('AI_GPU_VENDOR')
+    _ENDPOINTS = {
+        'nvidia': config('AI_NVIDIA_ENDPOINT', default=''),
+        'amd': config('AI_AMD_ENDPOINT', default=''),
+        'cpu': config('AI_CPU_ENDPOINT', default=''),
+    }
+    AI_LOCAL_ENDPOINT = _ENDPOINTS.get(AI_GPU_VENDOR, config('AI_CPU_ENDPOINT', default=''))
