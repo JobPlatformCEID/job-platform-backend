@@ -25,19 +25,27 @@ def get_history(session_id):
     key = HISTORY_KEY.format(session_id)
     cached = cache.get(key)
 
-    if cached:
+    if cached is not None:
         logger.info(f"Cache hit for session {session_id}, history length: {len(cached)}")
         return cached
 
     logger.debug(f"Cache miss for session {session_id}, rebuilding from PostgreSQL")
+    
+    # Check if a summary exists before rebuilding
+    summary = cache.get(SUMMARY_KEY.format(session_id))
+    
     messages = InterviewMessage.objects.filter(
         session_id=session_id
-    ).order_by('-created_at')[:SUMMARY_THRESHOLD]
+    ).order_by('created_at')  # ALL messages, oldest first
 
-    history = [
-        {"role": msg.role, "content": msg.content}
-        for msg in reversed(messages)
-    ]
+    history = [{"role": m.role, "content": m.content} for m in messages]
+
+    if summary:
+        recent = history[-4:]
+        history = [
+            {"role": "system", "content": f"ΣΥΝΟΨΗ ΣΥΝΕΝΤΕΥΞΗΣ ΩΣ ΤΩΡΑ:\n{summary}"},
+            *recent
+        ]
 
     cache.set(key, history, timeout=60*60*24)
     logger.info(f"Rebuilt AI history for session {session_id}, history length: {len(history)}")
@@ -161,6 +169,27 @@ def generate_opening_message(self, session_id, room_group_name):
     channel_layer = get_channel_layer()
 
     try:
+        # If opening message already exists, just re-push it
+        existing = InterviewMessage.objects.filter(
+            session_id=session_id,
+            role=InterviewMessage.Role.Assistant
+        ).first()
+
+        if existing:
+            async_to_sync(channel_layer.group_send)(
+                room_group_name,
+                {
+                    "type": "ai_message",
+                    "message": {
+                        "id": existing.id,
+                        "role": existing.role,
+                        "content": existing.content,
+                        "created_at": existing.created_at.isoformat(),
+                    }
+                }
+            )
+            return
+
         session = InterviewSession.objects.select_related(
                     'job_posting', 'user', 'user__candidate_profile'
                 ).prefetch_related(
