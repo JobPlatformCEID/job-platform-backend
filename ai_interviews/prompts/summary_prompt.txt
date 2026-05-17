@@ -1,20 +1,7 @@
-Βάσει της συνέντευξης που έχει γίνει μέχρι τώρα για τη θέση "{job_title}", δώσε μια σύντομη δομημένη εσωτερική αξιολόγηση στα Ελληνικά.
+Based on the interview so far for the "{job_title}" position, write a concise internal note in one dense paragraph. Cover the candidate's overall impression, key strengths demonstrated, critical gaps relative to the job requirements, your estimate of their seniority level, and which area the interview should focus on next. This is not feedback for the candidate — it is context for continuing the interview.
 
-Χρησιμοποίησε την αγγελία και τα στοιχεία του υποψηφίου ως πλαίσιο αξιολόγησης:
-
+Job context:
 {job_context}
 
-Στοιχεία υποψηφίου:
+Candidate background:
 {candidate_context}
-
-Η σύνοψη είναι εσωτερική σημείωση για τον interviewer και χρησιμοποιείται για συμπίεση του ιστορικού. Δεν είναι feedback προς τον υποψήφιο.
-
-Δώσε τις παρακάτω ενότητες:
-
-1. **ΓΕΝΙΚΗ ΕΝΤΥΠΩΣΗ**: Συνολική εικόνα του υποψηφίου μέχρι στιγμής (2-3 προτάσεις).
-2. **ΔΥΝΑΤΑ ΣΗΜΕΙΑ**: Τα βασικά δυνατά σημεία που έδειξε, με συγκεκριμένα παραδείγματα από τη συνομιλία.
-3. **ΚΡΙΣΙΜΑ ΚΕΝΑ**: Τα σημαντικότερα κενά ή λάθη που εντοπίστηκαν σε σχέση με τις απαιτήσεις της αγγελίας.
-4. **ΕΠΙΠΕΔΟ ΥΠΟΨΗΦΙΟΥ**: Εκτίμησε το επίπεδο εμπειρίας (Junior / Mid / Senior) με βάση τις απαντήσεις.
-5. **ΕΠΟΜΕΝΑ ΒΗΜΑΤΑ**: Σε ποιον τομέα πρέπει να εμβαθύνει η συνέντευξη στη συνέχεια και γιατί.
-
-Κράτα το σύντομο, πρακτικό και σαφές.
