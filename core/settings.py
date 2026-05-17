@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 import sys
 from decouple import config
 from pathlib import Path
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -230,11 +231,10 @@ CACHES = {
 
 # Celery settings 
 CELERY_BROKER_URL = f'redis://{config("REDIS_HOST")}:{config("REDIS_PORT", cast=int)}/0'
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 CELERY_RESULT_BACKEND = 'django-db'
 CELERY_CACHE_BACKEND = 'django-cache'
 CELERY_RESULT_EXTENDED = True
-
-from celery.schedules import crontab
 
 CELERY_BEAT_SCHEDULE = {
     'delete-expired-rooms': {

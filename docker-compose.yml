@@ -18,6 +18,8 @@ services:
       - AI_NVIDIA_ENDPOINT=http://ollama-nvidia:11434
       - AI_AMD_ENDPOINT=http://llama-cpp-amd:8080
       - AI_CPU_ENDPOINT=http://llama-cpp-cpu:8080
+      - MINIO_PUBLIC_ENDPOINT=${HOST_PUBLIC_ENDPOINT:-localhost}:9000
+      - LIVEKIT_URL=ws://${HOST_PUBLIC_ENDPOINT:-localhost}:7880
     depends_on:
       postgres:
         condition: service_healthy
@@ -182,11 +184,14 @@ services:
       - AI_NVIDIA_ENDPOINT=http://ollama-nvidia:11434
       - AI_AMD_ENDPOINT=http://llama-cpp-amd:8080
       - AI_CPU_ENDPOINT=http://llama-cpp-cpu:8080
+      - MINIO_PUBLIC_ENDPOINT=${HOST_PUBLIC_ENDPOINT:-localhost}:9000
+      - LIVEKIT_URL=ws://${HOST_PUBLIC_ENDPOINT:-localhost}:7880
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
+
   celery-beat:
     image: job-platform-backend-django
     container_name: celery-beat
@@ -201,6 +206,8 @@ services:
       - MINIO_ENDPOINT=minio:9000
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - MINIO_PUBLIC_ENDPOINT=${HOST_PUBLIC_ENDPOINT:-localhost}:9000
+      - LIVEKIT_URL=ws://${HOST_PUBLIC_ENDPOINT:-localhost}:7880
     depends_on:
       postgres:
         condition: service_healthy
