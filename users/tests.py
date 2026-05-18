@@ -84,8 +84,7 @@ class UserTests(TestCase):
         response = self.client.put('/api/candidates/me/', {
             'phone': '1234567890',
             'location': 'Athens',
-            'bio': 'Hello',
-            'score': 0
+            'bio': 'Hello'
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['location'], 'Athens')
@@ -174,17 +173,6 @@ class UserTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Token faketoken123')
         response = self.client.get('/api/candidates/me/')
         self.assertEqual(response.status_code, 401)
-
-    def test_candidate_score_is_read_only(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
-        self.client.put('/api/candidates/me/', {
-            'phone': '123',
-            'location': 'Athens',
-            'bio': 'test',
-            'score': 999
-        })
-        profile = CandidateProfile.objects.get(user=self.candidate)
-        self.assertNotEqual(profile.score, 999)
     
     def test_login_nonexistent_user(self):
         response = self.client.post('/api/auth/login/', {
@@ -208,12 +196,6 @@ class UserTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['description'], 'New description only')
- 
-    def test_candidate_profile_default_score_is_zero(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
-        response = self.client.get('/api/candidates/me/')
-        self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.data['score'], 0)
  
     def test_employer_cannot_update_candidate_profile(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)

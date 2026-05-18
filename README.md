@@ -1,5 +1,16 @@
 # job-platform-backend
 
+![Job Bless Logo](images/logo.png)
+
+the backend made for the software engineering course for CEID 2026.
+
+## Team Members
+- **ΑΔΑΜΟΠΟΥΛΟΣ ΘΕΟΔΩΡΟΣ / vortex3964** - ΑΜ:1108389 - 6ο εξαμηνο
+- **ΑΛΕΞΑΝΔΡΟΠΟΥΛΟΣ ΘΕΟΔΩΡΟΣ / teettt1** - ΑΜ: 1108347 - 6ο εξαμηνο
+- **ΔΗΜΟΠΟΥΛΟΣ ΗΛΙΑΣ / LinkBoi00** - ΑΜ:1108376 - 6ο εξαμηνο
+- **ΧΑΪΔΟΓΙΑΝΝΟΣ ΜΑΡΙΟΣ-ΔΗΜΗΤΡΙΟΣ / Dimitris34** - ΑΜ:1112101 - 6ο εξαμηνο
+- **ΧΑΤΖΗΔΗΜΗΤΡΙΟΥ ΣΤΥΛΙΑΝΟΣ / Stelios-Chatzid** - ΑΜ:1112144 - 6ο εξαμηνο
+
 ## Technologies
 
 - Docker
@@ -63,6 +74,18 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/api/candidates/<id>/` | Get candidate profile | Token |
 | GET | `/api/candidates/me/` | Get current user's candidate profile | Token |
 | PUT | `/api/candidates/me/` | Update current user's candidate profile | Token |
+| GET | /api/candidates/background/skills/ | List candidate's skills | Token |
+| POST | /api/candidates/background/skills/ | Add a skill | Token |
+| PUT | /api/candidates/background/skills/<id>/ | Update a skill | Token |
+| DELETE | /api/candidates/background/skills/<id>/ | Delete a skill | Token |
+| GET | /api/candidates/background/education/ | List candidate's education entries | Token |
+| POST | /api/candidates/background/education/ | Add an education entry | Token |
+| PUT | /api/candidates/background/education/<id>/ | Update an education entry | Token |
+| DELETE | /api/candidates/background/education/<id>/ | Delete an education entry | Token |
+| GET | /api/candidates/background/experience/ | List candidate's work experiences | Token |
+| POST | /api/candidates/background/experience/ | Add a work experience | Token |
+| PUT | /api/candidates/background/experience/<id>/ | Update a work experience | Token |
+| DELETE | /api/candidates/background/experience/<id>/ | Delete a work experience | Token |
 
 ### Employers
 | Method | Endpoint | Description | Auth |
@@ -154,6 +177,7 @@ docker compose exec django python manage.py createsuperuser
 | PUT | `/api/calls/<id>/` | Update room (host only) | Token |
 | DELETE | `/api/calls/<id>/` | Delete room (host only) | Token |
 | POST | `/api/calls/<id>/token/` | Get LiveKit token to join | Token |
+| GET | /api/calls/<id>/participants/ | List participants in a room | Token |
 
 REST APIs were tested with Postman.
 WebSocket connections were tested via https://websocketking.com
@@ -165,15 +189,3 @@ All protected APIs require a token in the request header:
 ```
 Authorization: Token <your-token>
 ```
-
-## Progress
-
-- Implemented most of use cases 1 and 2
-- Missing: CV upload, Profile score calculation (We need to decide where calculation should happen)
-- Added tests to jobs/test.py to check if everything is working as its supposed to
-- Added reviews and some tests in reviews/tests.py
-- Added social networking and some tests in social/tests.py
-- Added messaging with WebSocket connections and some tests in messaging/tests.py
-- Added support for deleting conversations and messages in messaging app
-- implemented a basic ui with ai mock interviews (need to improve system prompt)
-- Added livekit calls support and cleaned up README
