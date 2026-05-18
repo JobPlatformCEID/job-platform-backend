@@ -1,5 +1,7 @@
 # job-platform-backend
 
+![Job Bless Logo](images/logo.png)
+
 the backend made for the software engineering course for CEID 2026.
 
 ## Team Members
