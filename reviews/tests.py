@@ -88,7 +88,7 @@ class ReviewTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Token '+self.employer1_token.key)
 
         response = self.client.post(self.url , {
-            'score' : 10,
+            'score' : 2,
             'content' : 'amazing my opinion is not biased'
         })
 
@@ -163,7 +163,7 @@ class ReviewTests(TestCase):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer2_token.key)
 
         response = self.client.post(self.url, {
-            'score': 7,
+            'score': 3,
             'content': 'good competitor'
         })
 
@@ -181,13 +181,13 @@ class ReviewTests(TestCase):
     
     def test_calculation_of_avg(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
-        self.client.post(self.url, {'score': 6, 'content': 'decent'})
+        self.client.post(self.url, {'score': 3, 'content': 'decent'})
 
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate2_token.key)
-        self.client.post(self.url, {'score': 8, 'content': 'good'})
+        self.client.post(self.url, {'score': 4, 'content': 'good'})
 
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate3_token.key)
-        self.client.post(self.url, {'score': 10, 'content': 'excellent'})
+        self.client.post(self.url, {'score': 5, 'content': 'excellent'})
 
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
         response = self.client.get(self.url)
@@ -196,7 +196,7 @@ class ReviewTests(TestCase):
 
         scores = [r['score'] for r in response.data]
         avg = sum(scores) / len(scores)
-        self.assertAlmostEqual(avg, 8.0)
+        self.assertAlmostEqual(avg, 4.0)
 
     def test_fetch_single_review(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
@@ -220,14 +220,14 @@ class ReviewTests(TestCase):
 
     def test_empty_content_is_accepted(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
-        response = self.client.post(self.url, {'score': 7})
+        response = self.client.post(self.url, {'score': 3})
         self.assertEqual(response.status_code, 201)
 
     def test_delete_and_re_review(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate1_token.key)
 
         # leave a review
-        response = self.client.post(self.url, {'score': 5, 'content': 'ok'})
+        response = self.client.post(self.url, {'score': 3, 'content': 'ok'})
         review_id = response.data['id']
         self.assertEqual(response.status_code, 201)
 
@@ -236,7 +236,7 @@ class ReviewTests(TestCase):
         self.assertEqual(response.status_code, 204)
 
         # leave a new review
-        response = self.client.post(self.url, {'score': 9, 'content': 'changed my mind'})
+        response = self.client.post(self.url, {'score': 5, 'content': 'changed my mind'})
         self.assertEqual(response.status_code, 201)
 
 
