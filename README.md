@@ -2,7 +2,7 @@
 
 ![Job Bless Logo](images/logo.png)
 
-the backend made for the software engineering course for CEID 2026.
+The backend server for JobBless, a job seeking platform built in 2026 for the Software Engineering course at CEID, University of Patras.
 
 ## Team Members
 - **ΑΔΑΜΟΠΟΥΛΟΣ ΘΕΟΔΩΡΟΣ / vortex3964** - ΑΜ:1108389 - 6ο εξαμηνο
@@ -19,6 +19,9 @@ the backend made for the software engineering course for CEID 2026.
 - PostgreSQL
 - MinIO
 - LiveKit
+- Redis
+- Celery
+- Groq API
 
 ## Running with Docker (recommended)
 
@@ -31,13 +34,30 @@ cd job-platform-backend
 
 ### 2. Set up environment variables
 
-Copy `.env.example` to `.env` and fill in the values:
+Copy `.env.example` to `.env` and fill in the values according to the table below:
 
 ```bash
 cp .env.example .env
 ```
 
-SECRET_KEY can be generated from https://djecrety.ir/
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SECRET_KEY` | Django secret key, generate one at https://djecrety.ir/ | - |
+| `DEBUG` | Enable debug mode | `True` |
+| `DB_NAME` | Database name | `jobplatform` |
+| `DB_USER` | Database user | `jobplatform` |
+| `DB_PASSWORD` | Database password | `jobplatform` |
+| `MINIO_USER` | MinIO root user | `jobplatform` |
+| `MINIO_PASSWORD` | MinIO root password | `jobplatform` |
+| `MINIO_BUCKET` | MinIO bucket name | `jobplatform` |
+| `HOST_PUBLIC_ENDPOINT` | Your machine's public IP for MinIO and LiveKit (run `ipconfig` on Windows or `ifconfig` on Linux/Mac) | `localhost` |
+| `LIVEKIT_API_KEY` | LiveKit API key, any string you choose | - |
+| `LIVEKIT_API_SECRET` | LiveKit API secret, any string you choose (minimum 32 characters) | - |
+| `AI_BACKEND` | AI provider to use, either `groq` or `local` | `groq` |
+| `AI_GROQ_MODEL` | Groq model name (only when `AI_BACKEND=groq`) | `meta-llama/llama-4-scout-17b-16e-instruct` |
+| `GROQ_API_KEY` | Groq API key (only when `AI_BACKEND=groq`) | - |
+| `AI_GPU_VENDOR` | GPU vendor for local inference: `nvidia`, `amd`, or `cpu` (only when `AI_BACKEND=local`) | `cpu` |
+| `AI_LOCAL_MODEL` | Local model name (only when `AI_BACKEND=local`) | `qwen2.5-3b-instruct-q4_k_m.gguf` |
 
 ### 3. Build and run container
 
@@ -73,35 +93,35 @@ docker compose exec django python manage.py createsuperuser
 |--------|----------|-------------|------|
 | GET | `/api/candidates/<id>/` | Get candidate profile | Token |
 | GET | `/api/candidates/me/` | Get current user's candidate profile | Token |
-| PUT | `/api/candidates/me/` | Update current user's candidate profile | Token |
-| GET | /api/candidates/background/skills/ | List candidate's skills | Token |
-| POST | /api/candidates/background/skills/ | Add a skill | Token |
-| PUT | /api/candidates/background/skills/<id>/ | Update a skill | Token |
-| DELETE | /api/candidates/background/skills/<id>/ | Delete a skill | Token |
-| GET | /api/candidates/background/education/ | List candidate's education entries | Token |
-| POST | /api/candidates/background/education/ | Add an education entry | Token |
-| PUT | /api/candidates/background/education/<id>/ | Update an education entry | Token |
-| DELETE | /api/candidates/background/education/<id>/ | Delete an education entry | Token |
-| GET | /api/candidates/background/experience/ | List candidate's work experiences | Token |
-| POST | /api/candidates/background/experience/ | Add a work experience | Token |
-| PUT | /api/candidates/background/experience/<id>/ | Update a work experience | Token |
-| DELETE | /api/candidates/background/experience/<id>/ | Delete a work experience | Token |
+| PUT/PATCH | `/api/candidates/me/` | Update current user's candidate profile | Token |
+| GET | `/api/candidates/background/skills/` | List candidate's skills (use `?candidate_id=` to view another candidate's) | Token |
+| POST | `/api/candidates/background/skills/` | Add a skill | Token |
+| PUT/PATCH | `/api/candidates/background/skills/<id>/` | Update a skill | Token |
+| DELETE | `/api/candidates/background/skills/<id>/` | Delete a skill | Token |
+| GET | `/api/candidates/background/education/` | List candidate's education entries (use `?candidate_id=` to view another candidate's) | Token |
+| POST | `/api/candidates/background/education/` | Add an education entry | Token |
+| PUT/PATCH | `/api/candidates/background/education/<id>/` | Update an education entry | Token |
+| DELETE | `/api/candidates/background/education/<id>/` | Delete an education entry | Token |
+| GET | `/api/candidates/background/experience/` | List candidate's work experiences (use `?candidate_id=` to view another candidate's) | Token |
+| POST | `/api/candidates/background/experience/` | Add a work experience | Token |
+| PUT/PATCH | `/api/candidates/background/experience/<id>/` | Update a work experience | Token |
+| DELETE | `/api/candidates/background/experience/<id>/` | Delete a work experience | Token |
 
 ### Employers
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
 | GET | `/api/employers/` | List all employer profiles | Token |
-| GET | `/api/employers/<id>` | Get employer profile | Token |
+| GET | `/api/employers/<id>/` | Get employer profile | Token |
 | GET | `/api/employers/me/` | Get current user's employer profile | Token |
-| PUT | `/api/employers/me/` | Update current user's  employer profile | Token |
+| PUT/PATCH | `/api/employers/me/` | Update current user's  employer profile | Token |
 
 ### Jobs
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/jobs/` | List all active job postings | Token |
+| GET | `/api/jobs/` | List all active job postings (employer sees inactive ones too) | Token |
 | POST | `/api/jobs/` | Create a job posting (employer only) | Token |
 | GET | `/api/jobs/<id>/` | Get job posting details | Token |
-| PUT | `/api/jobs/<id>/` | Update a job posting (employer only) | Token |
+| PUT/PATCH | `/api/jobs/<id>/` | Update a job posting (employer only) | Token |
 | DELETE | `/api/jobs/<id>/` | Delete a job posting (employer only) | Token |
 | POST | `/api/jobs/<id>/apply/` | Apply for a job (candidate only) | Token |
 | GET | `/api/jobs/applications/` | List applications (employer: all for their postings, candidate: own applications) | Token |
@@ -113,7 +133,7 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/api/reviews/<employer_id>/` | List all reviews for an employer | Token |
 | POST | `/api/reviews/<employer_id>/` | Leave a review for an employer | Token |
 | GET | `/api/reviews/<employer_id>/<id>/` | Get a single review | Token |
-| PUT | `/api/reviews/<employer_id>/<id>/` | Edit a review (owner only) | Token |
+| PUT/PATCH | `/api/reviews/<employer_id>/<id>/` | Edit a review (owner only) | Token |
 | DELETE | `/api/reviews/<employer_id>/<id>/` | Delete a review (owner only) | Token |
 
 ### Social
@@ -122,12 +142,12 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/api/posts/` | List all posts | Token |
 | POST | `/api/posts/` | Create a post | Token |
 | GET | `/api/posts/<id>/` | Get post details | Token |
-| PATCH | `/api/posts/<id>/` | Update a post | Token |
+| PUT/PATCH | `/api/posts/<id>/` | Update a post | Token |
 | DELETE | `/api/posts/<id>/` | Delete a post | Token |
 | GET | `/api/posts/<id>/comments/` | List comments on a post | Token |
 | POST | `/api/posts/<id>/comments/` | Add a comment to a post | Token |
 | GET | `/api/posts/<id>/comments/<comment_id>/` | Get a specific comment | Token |
-| PATCH | `/api/posts/<id>/comments/<comment_id>/` | Update a comment | Token |
+| PUT/PATCH | `/api/posts/<id>/comments/<comment_id>/` | Update a comment | Token |
 | DELETE | `/api/posts/<id>/comments/<comment_id>/` | Delete a comment | Token |
 | POST | `/api/posts/<id>/like/` | Like and Unlike a post | Token |
 | GET | `/api/posts/<id>/images/` | List all images for a post | Token |
@@ -144,6 +164,7 @@ docker compose exec django python manage.py createsuperuser
 | DELETE | `/api/conversations/<id>/` | Delete a conversation and all its messages | Token |
 | GET | `/api/conversations/<id>/messages/` | List all messages in a conversation | Token |
 | DELETE | `/api/conversations/<id>/messages/<message_id>/` | Delete a message (sender only) | Token |
+| WS | `ws/conversations/<id>/?token=<token>` | Connect to live conversation | Token |
 
 ### Stats
 | Method | Endpoint | Description | Auth |
@@ -161,28 +182,30 @@ docker compose exec django python manage.py createsuperuser
 | GET | `/api/stats/most-competitive-jobs/` | Top 10 jobs ranked by application count | Token |
 
 ### Mock AI Interviews
-| Event | Endpoint | Description | Auth |
-|-------|----------|-------------|------|
-| GET | `/sessions/` | List all user's interview sessions | Required |
-| POST | `/sessions/` | Create a new interview session | Required |
-| GET | `/sessions/<id>/` | Get session details + all messages | Required |
-| DELETE | `/sessions/<id>/` | Delete a session | Required |
+| Method | Endpoint | Description | Auth |
+|--------|----------|-------------|------|
+| GET | `/api/sessions/` | List all user's interview sessions | Token |
+| POST | `/api/sessions/` | Create a new interview session (requires `job_posting_id`) | Token |
+| GET | `/api/sessions/<id>/` | Get session details and full message history | Token |
+| PATCH | `/api/sessions/<id>/` | Update session (e.g. title) | Token |
+| DELETE | `/api/sessions/<id>/` | Delete a session | Token |
+| GET | `/api/sessions/<id>/messages/` | List all messages in a session | Token |
+| WS | `ws/interview/<id>/?token=<token>` | Connect to live interview session | Token |
 
 ### Calls (LiveKit)
 | Method | Endpoint | Description | Auth |
 |--------|----------|-------------|------|
-| GET | `/api/calls/` | List all rooms | Token |
+| GET | `/api/calls/` | List all rooms where you are host or participant (excludes expired) | Token |
 | POST | `/api/calls/` | Create a room (employer only) | Token |
 | GET | `/api/calls/<id>/` | Get room details | Token |
-| PUT | `/api/calls/<id>/` | Update room (host only) | Token |
+| PUT/PATCH | `/api/calls/<id>/` | Update room (host only) | Token |
 | DELETE | `/api/calls/<id>/` | Delete room (host only) | Token |
-| POST | `/api/calls/<id>/token/` | Get LiveKit token to join | Token |
-| GET | /api/calls/<id>/participants/ | List participants in a room | Token |
+| POST | `/api/calls/<id>/token/` | Get LiveKit join token (must be participant, meeting must have started and not expired) | Token |
+| POST | `/api/calls/<id>/participants/` | Add a user to the room by `user_id` (host only) | Token |
+| DELETE | `/api/calls/<id>/participants/` | Remove yourself from the room | Token |
 
-REST APIs were tested with Postman.
-WebSocket connections were tested via https://websocketking.com
 
-## Token-based authentication (temporary)
+## Token-based authentication
 
 All protected APIs require a token in the request header:
 
