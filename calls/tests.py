@@ -161,6 +161,36 @@ class RoomListCreateViewTests(TestCase):
         room = Room.objects.get(id=response.data['id'])
         self.assertIsNone(room.meeting_date)
 
+    def test_is_participant_true_for_participant(self):
+        self.room.participants.add(self.candidate)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get('/api/calls/')
+        room_data = next(r for r in response.data if r['id'] == self.room.id)
+        self.assertTrue(room_data['is_participant'])
+
+    def test_is_participant_false_for_non_participant(self):
+        # employer2 is host of their own room but not a participant of employer1's room
+        room2 = Room.objects.create(
+            room_name='Employer2 Room',
+            host=self.employer2,
+            meeting_date=timezone.now() + timedelta(hours=1),
+        )
+        room2.participants.add(self.employer2)
+        room2.participants.add(self.candidate)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get('/api/calls/')
+        room_data = next(r for r in response.data if r['id'] == room2.id)
+        self.assertTrue(room_data['is_participant'])
+        # now check employer1's room where candidate is not a participant
+        room1_data = next((r for r in response.data if r['id'] == self.room.id), None)
+        self.assertIsNone(room1_data)  # candidate shouldn't even see this room
+
+    def test_is_participant_true_for_host(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
+        response = self.client.get('/api/calls/')
+        room_data = next(r for r in response.data if r['id'] == self.room.id)
+        self.assertTrue(room_data['is_participant'])
+
 class RoomDetailViewTests(TestCase):
 
     def setUp(self):
@@ -246,6 +276,22 @@ class RoomDetailViewTests(TestCase):
         })
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['room_name'], 'Fully Updated Room')
+
+    def test_is_participant_field_present_in_detail(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get(f'/api/calls/{self.room.id}/')
+        self.assertIn('is_participant', response.data)
+
+    def test_is_participant_false_in_detail_for_non_participant(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get(f'/api/calls/{self.room.id}/')
+        self.assertFalse(response.data['is_participant'])
+
+    def test_is_participant_true_in_detail_after_being_added(self):
+        self.room.participants.add(self.candidate)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.get(f'/api/calls/{self.room.id}/')
+        self.assertTrue(response.data['is_participant'])
 
 class RoomParticipantViewTests(TestCase):
 
