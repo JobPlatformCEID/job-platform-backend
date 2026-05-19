@@ -1,6 +1,6 @@
 # job-platform-backend
 
-![Job Bless Logo](images/logo.png)
+![Job Bless Logo](images/logo-with-background-and-text.png)
 
 The backend server for JobBless, a job seeking platform built in 2026 for the Software Engineering course at CEID, University of Patras.
 
