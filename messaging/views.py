@@ -67,9 +67,13 @@ class ConversationDeleteView(generics.DestroyAPIView):
 class MessageDeleteView(generics.DestroyAPIView):
     permission_classes = [IsAuthenticated]
 
+    def get_queryset(self):
+        # Only allow querying messages from conversations the user is participating in
+        return Message.objects.filter(conversation__participants=self.request.user)
+
     def get_object(self):
         try:
-            message = Message.objects.get(
+            message = self.get_queryset().get(
                 pk=self.kwargs.get('message_pk'),
                 conversation_id=self.kwargs.get('pk')
             )
