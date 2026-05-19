@@ -200,9 +200,14 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 # LiveKit integration
-LIVEKIT_URL = config('LIVEKIT_URL')
-LIVEKIT_API_KEY = config('LIVEKIT_API_KEY')
-LIVEKIT_API_SECRET = config('LIVEKIT_API_SECRET')
+if 'test' in sys.argv:
+    LIVEKIT_URL = 'ws://localhost:7880'
+    LIVEKIT_API_KEY = 'devkey'
+    LIVEKIT_API_SECRET = 'devsecret'
+else:
+    LIVEKIT_URL = config('LIVEKIT_URL')
+    LIVEKIT_API_KEY = config('LIVEKIT_API_KEY')
+    LIVEKIT_API_SECRET = config('LIVEKIT_API_SECRET')
 
 # Internationalization
 # https://docs.djangoproject.com/en/6.0/topics/i18n/
@@ -222,19 +227,31 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 # Django cache
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.redis.RedisCache",
-        "LOCATION": f'redis://{config("REDIS_HOST")}:{config("REDIS_PORT", cast=int)}/1',
+if 'test' in sys.argv:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+        }
     }
-}
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.redis.RedisCache",
+            "LOCATION": f'redis://{config("REDIS_HOST")}:{config("REDIS_PORT", cast=int)}/1',
+        }
+    }
 
-# Celery settings 
-CELERY_BROKER_URL = f'redis://{config("REDIS_HOST")}:{config("REDIS_PORT", cast=int)}/0'
-CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
-CELERY_RESULT_BACKEND = 'django-db'
-CELERY_CACHE_BACKEND = 'django-cache'
-CELERY_RESULT_EXTENDED = True
+# Celery settings
+if 'test' in sys.argv:
+    CELERY_BROKER_URL = 'memory://'
+    CELERY_RESULT_BACKEND = 'cache'
+    CELERY_CACHE_BACKEND = 'memory'
+else:
+    CELERY_BROKER_URL = f'redis://{config("REDIS_HOST")}:{config("REDIS_PORT", cast=int)}/0'
+    CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+    CELERY_RESULT_BACKEND = 'django-db'
+    CELERY_CACHE_BACKEND = 'django-cache'
+    CELERY_RESULT_EXTENDED = True
 
 CELERY_BEAT_SCHEDULE = {
     'delete-expired-rooms': {
@@ -245,7 +262,10 @@ CELERY_BEAT_SCHEDULE = {
 
 # AI settings
 AI_BACKEND = config('AI_BACKEND', default='groq')
-if AI_BACKEND == 'groq':
+if 'test' in sys.argv:
+    GROQ_API_KEY = ''
+    AI_GROQ_MODEL = ''
+elif AI_BACKEND == 'groq':
     AI_GROQ_MODEL = config('AI_GROQ_MODEL', default='llama-3.3-70b-versatile')
     GROQ_API_KEY = config('GROQ_API_KEY')
 elif AI_BACKEND == 'local':

@@ -56,7 +56,7 @@ class RoomListCreateViewTests(TestCase):
         response = self.client.get('/api/calls/')
         self.assertEqual(response.status_code, 200)
 
-    def test_list_includes_hosted_rooms(self):
+    def test_list_includes_rooms_where_user_is_host(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
         response = self.client.get('/api/calls/')
         ids = [r['id'] for r in response.data]
@@ -69,7 +69,7 @@ class RoomListCreateViewTests(TestCase):
         ids = [r['id'] for r in response.data]
         self.assertIn(self.room.id, ids)
 
-    def test_list_excludes_unrelated_rooms(self):
+    def test_list_excludes_rooms_where_user_is_neither_host_nor_participant(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer2_token.key)
         response = self.client.get('/api/calls/')
         ids = [r['id'] for r in response.data]
@@ -93,7 +93,6 @@ class RoomListCreateViewTests(TestCase):
             host=self.employer1,
         )
         old.participants.add(self.employer1)
-        # Manually push created_at back past the expiry threshold
         Room.objects.filter(pk=old.pk).update(
             created_at=timezone.now() - timedelta(hours=25)
         )
@@ -152,6 +151,15 @@ class RoomListCreateViewTests(TestCase):
         room = Room.objects.get(id=response.data['id'])
         self.assertIn(self.employer1, room.participants.all())
 
+    def test_employer_can_create_room_without_meeting_date(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
+        response = self.client.post('/api/calls/', {
+            'room_name': 'Instant Room',
+            'description': 'No scheduled time',
+        })
+        self.assertEqual(response.status_code, 201)
+        room = Room.objects.get(id=response.data['id'])
+        self.assertIsNone(room.meeting_date)
 
 class RoomDetailViewTests(TestCase):
 
@@ -229,6 +237,15 @@ class RoomDetailViewTests(TestCase):
         response = self.client.delete(f'/api/calls/{self.room.id}/')
         self.assertEqual(response.status_code, 403)
 
+    def test_host_can_full_update_room(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer1_token.key)
+        response = self.client.put(f'/api/calls/{self.room.id}/', {
+            'room_name': 'Fully Updated Room',
+            'description': 'New description',
+            'meeting_date': (timezone.now() + timedelta(hours=3)).isoformat(),
+        })
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['room_name'], 'Fully Updated Room')
 
 class RoomParticipantViewTests(TestCase):
 
@@ -241,6 +258,12 @@ class RoomParticipantViewTests(TestCase):
         EmployerProfile.objects.create(user=self.employer, company_name='Company One')
         self.employer_token = Token.objects.create(user=self.employer)
 
+        self.employer2 = User.objects.create_user(
+            username='employer2', password='password', role=User.Role.EMPLOYER
+        )
+        EmployerProfile.objects.create(user=self.employer2, company_name='Company Two')
+        self.employer2_token = Token.objects.create(user=self.employer2)
+
         self.candidate = User.objects.create_user(
             username='candidate1', password='password', role=User.Role.CANDIDATE
         )
@@ -252,19 +275,63 @@ class RoomParticipantViewTests(TestCase):
             host=self.employer,
             meeting_date=timezone.now() + timedelta(hours=1),
         )
+        self.room.participants.add(self.employer)
 
-    def test_unauthenticated_cannot_join_room(self):
-        response = self.client.post(f'/api/calls/{self.room.id}/participants/')
+    def test_unauthenticated_cannot_add_participant(self):
+        response = self.client.post(
+            f'/api/calls/{self.room.id}/participants/',
+            {'user_id': self.candidate.id}
+        )
         self.assertEqual(response.status_code, 401)
 
-    def test_authenticated_user_can_join_room(self):
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
-        response = self.client.post(f'/api/calls/{self.room.id}/participants/')
+    def test_host_can_add_participant_by_user_id(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        response = self.client.post(
+            f'/api/calls/{self.room.id}/participants/',
+            {'user_id': self.candidate.id}
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['status'], 'added')
         self.assertIn(self.candidate, self.room.participants.all())
 
-    def test_authenticated_user_can_leave_room(self):
+    def test_non_host_cannot_add_participant(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer2_token.key)
+        response = self.client.post(
+            f'/api/calls/{self.room.id}/participants/',
+            {'user_id': self.candidate.id}
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_candidate_cannot_add_participant(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.post(
+            f'/api/calls/{self.room.id}/participants/',
+            {'user_id': self.candidate.id}
+        )
+        self.assertEqual(response.status_code, 403)
+
+    def test_add_participant_missing_user_id_returns_400(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        response = self.client.post(f'/api/calls/{self.room.id}/participants/', {})
+        self.assertEqual(response.status_code, 400)
+
+    def test_add_participant_nonexistent_user_returns_404(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        response = self.client.post(
+            f'/api/calls/{self.room.id}/participants/',
+            {'user_id': 99999}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_add_participant_nonexistent_room_returns_404(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        response = self.client.post(
+            '/api/calls/99999/participants/',
+            {'user_id': self.candidate.id}
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_user_can_remove_themselves(self):
         self.room.participants.add(self.candidate)
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
         response = self.client.delete(f'/api/calls/{self.room.id}/participants/')
@@ -272,14 +339,23 @@ class RoomParticipantViewTests(TestCase):
         self.assertEqual(response.data['status'], 'removed')
         self.assertNotIn(self.candidate, self.room.participants.all())
 
-    def test_join_nonexistent_room_returns_404(self):
+    def test_unauthenticated_cannot_remove_participant(self):
+        response = self.client.delete(f'/api/calls/{self.room.id}/participants/')
+        self.assertEqual(response.status_code, 401)
+
+    def test_host_can_remove_themselves(self):
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.employer_token.key)
+        response = self.client.delete(f'/api/calls/{self.room.id}/participants/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['status'], 'removed')
+        self.assertNotIn(self.employer, self.room.participants.all())
+
+    def test_remove_participant_nonexistent_room_returns_404(self):
         self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
-        response = self.client.post('/api/calls/99999/participants/')
+        response = self.client.delete('/api/calls/99999/participants/')
         self.assertEqual(response.status_code, 404)
 
-
 class RoomTokenViewTests(TestCase):
-
     def setUp(self):
         self.client = APIClient()
 
@@ -295,7 +371,7 @@ class RoomTokenViewTests(TestCase):
         CandidateProfile.objects.create(user=self.candidate)
         self.candidate_token = Token.objects.create(user=self.candidate)
 
-        # An active room: meeting started 5 minutes ago
+        # Active room: meeting started 5 minutes ago
         self.active_room = Room.objects.create(
             room_name='Active Room',
             host=self.employer,
@@ -304,7 +380,7 @@ class RoomTokenViewTests(TestCase):
         self.active_room.participants.add(self.employer)
         self.active_room.participants.add(self.candidate)
 
-        # A future room: meeting hasn't started yet
+        # Future room: meeting hasn't started yet
         self.future_room = Room.objects.create(
             room_name='Future Room',
             host=self.employer,
@@ -313,12 +389,13 @@ class RoomTokenViewTests(TestCase):
         self.future_room.participants.add(self.employer)
         self.future_room.participants.add(self.candidate)
 
-        # An expired room: meeting was more than 24 hours ago
+        # Expired room: meeting was more than 24 hours ago
         self.expired_room = Room.objects.create(
             room_name='Expired Room',
             host=self.employer,
             meeting_date=timezone.now() - timedelta(hours=25),
         )
+        self.expired_room.participants.add(self.employer)
         self.expired_room.participants.add(self.candidate)
 
     def test_unauthenticated_cannot_get_token(self):
@@ -331,13 +408,13 @@ class RoomTokenViewTests(TestCase):
         self.assertEqual(response.status_code, 404)
 
     def test_non_participant_cannot_get_token(self):
-        non_participant_room = Room.objects.create(
-            room_name='Closed Room',
-            host=self.employer,
-            meeting_date=timezone.now() - timedelta(minutes=5),
+        outsider = User.objects.create_user(
+            username='outsider', password='password', role=User.Role.CANDIDATE
         )
-        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
-        response = self.client.post(f'/api/calls/{non_participant_room.id}/token/')
+        CandidateProfile.objects.create(user=outsider)
+        outsider_token = Token.objects.create(user=outsider)
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + outsider_token.key)
+        response = self.client.post(f'/api/calls/{self.active_room.id}/token/')
         self.assertEqual(response.status_code, 403)
 
     def test_cannot_get_token_before_meeting_starts(self):
@@ -385,3 +462,80 @@ class RoomTokenViewTests(TestCase):
         response = self.client.post(f'/api/calls/{self.active_room.id}/token/')
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.data['room_name'], str(self.active_room.id))
+
+    @patch('calls.views.livekit_api.AccessToken')
+    def test_participant_can_get_token_for_room_without_meeting_date(self, mock_token_class):
+        mock_token = MagicMock()
+        mock_token.to_jwt.return_value = 'fake-jwt-token'
+        mock_token_class.return_value = mock_token
+
+        dateless_room = Room.objects.create(
+            room_name='Dateless Room',
+            host=self.employer,
+        )
+        dateless_room.participants.add(self.employer)
+        dateless_room.participants.add(self.candidate)
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.post(f'/api/calls/{dateless_room.id}/token/')
+        self.assertEqual(response.status_code, 200)
+
+    @patch('calls.views.livekit_api.AccessToken')
+    def test_token_response_contains_correct_livekit_url(self, mock_token_class):
+        mock_token = MagicMock()
+        mock_token.to_jwt.return_value = 'fake-jwt-token'
+        mock_token_class.return_value = mock_token
+
+        self.client.credentials(HTTP_AUTHORIZATION='Token ' + self.candidate_token.key)
+        response = self.client.post(f'/api/calls/{self.active_room.id}/token/')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.data['url'], 'ws://localhost:7880')
+
+class DeleteExpiredRoomsTaskTests(TestCase):
+
+    def setUp(self):
+        self.employer = User.objects.create_user(
+            username='employer1', password='password', role=User.Role.EMPLOYER
+        )
+        EmployerProfile.objects.create(user=self.employer, company_name='Company One')
+
+    def test_deletes_rooms_with_expired_meeting_date(self):
+        from calls.tasks import delete_expired_rooms
+        expired = Room.objects.create(
+            room_name='Expired',
+            host=self.employer,
+            meeting_date=timezone.now() - timedelta(hours=25),
+        )
+        delete_expired_rooms()
+        self.assertFalse(Room.objects.filter(pk=expired.pk).exists())
+
+    def test_deletes_rooms_without_meeting_date_past_expiry(self):
+        from calls.tasks import delete_expired_rooms
+        old = Room.objects.create(
+            room_name='Old',
+            host=self.employer,
+        )
+        Room.objects.filter(pk=old.pk).update(
+            created_at=timezone.now() - timedelta(hours=25)
+        )
+        delete_expired_rooms()
+        self.assertFalse(Room.objects.filter(pk=old.pk).exists())
+
+    def test_does_not_delete_active_rooms_with_future_meeting_date(self):
+        from calls.tasks import delete_expired_rooms
+        active = Room.objects.create(
+            room_name='Active',
+            host=self.employer,
+            meeting_date=timezone.now() + timedelta(hours=2),
+        )
+        delete_expired_rooms()
+        self.assertTrue(Room.objects.filter(pk=active.pk).exists())
+
+    def test_does_not_delete_recent_rooms_without_meeting_date(self):
+        from calls.tasks import delete_expired_rooms
+        recent = Room.objects.create(
+            room_name='Recent',
+            host=self.employer,
+        )
+        delete_expired_rooms()
+        self.assertTrue(Room.objects.filter(pk=recent.pk).exists())
