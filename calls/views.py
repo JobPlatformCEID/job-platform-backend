@@ -46,7 +46,13 @@ class RoomParticipantView(APIView):
 
     def post(self, request, pk):
         room = get_object_or_404(Room, pk=pk)
-        room.participants.add(request.user)
+        if room.host != request.user:
+            raise PermissionDenied('Only the host can add participants.')
+        user_id = request.data.get('user_id')
+        if not user_id:
+            raise ValidationError('user_id is required.')
+        user = get_object_or_404(User, pk=user_id)
+        room.participants.add(user)
         return Response({'status': 'added'})
 
     def delete(self, request, pk):
