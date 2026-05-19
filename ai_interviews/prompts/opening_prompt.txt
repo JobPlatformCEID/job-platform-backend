@@ -1,5 +1,5 @@
-Ξεκίνα τη συνέντευξη για τη θέση "{job_title}".
+Start the interview for the "{job_title}" position.
 
-Καλωσόρισε τον υποψήφιο ως Αλέξης, παρουσίασε σύντομα ότι η συνέντευξη θα βασιστεί στη συγκεκριμένη αγγελία, και κάνε την πρώτη ερώτηση της Φάσης 1.
+Welcome the candidate, briefly introduce that the interview will be based on the job posting, and ask the first Phase 1 question.
 
-Μην κάνεις περισσότερες από μία ερωτήσεις.
+Ask only one question.
