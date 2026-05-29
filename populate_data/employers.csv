@@ -1,0 +1,8 @@
+username,password,email,company_name,location,website,photo
+amazon,amazon,amazon@gmail.com,Amazon,Seattle,https://www.amazon.com,employers/amazon.jpg
+google,google,google@gmail.com,Google,Mountain View,https://www.google.com,employers/google.jpg
+netflix,netflix,netflix@gmail.com,Netflix,Los Gatos,https://www.netflix.com,employers/netflix.jpg
+vought,vought,vought@gmail.com,Vought International,New York,https://www.vought.com,employers/Vought.png
+ethnikh,ethnikh,ethnikh@gmail.com,Εθνική Ασφαλιστική,Athens,https://www.ethniki.gr,employers/ethnikh.png
+microslop,microslop,microslop@gmail.com,Microslop,Redmond,https://www.microslop.com,employers/microslop.png
+tiktok,tiktok,tiktok@gmail.com,TikTok,Los Angeles,https://www.tiktok.com,employers/tikTok.png
